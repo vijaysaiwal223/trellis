@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code session/tooling state (not part of the app)
+.agents/
+.claude/scheduled_tasks.lock
+.claude/skills/

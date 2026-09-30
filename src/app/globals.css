@@ -1,26 +1,237 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Tailwind v4 doesn't scan node_modules by default, but @medusajs/ui's
+   components (Avatar, Badge, StatusBadge, Button, Table, ...) generate
+   their utility classes dynamically inside their own compiled JS — without
+   this, most of those classes are silently missing from the build. */
+@source "../../node_modules/@medusajs/ui/dist/esm";
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-circular), Arial, Helvetica, sans-serif;
+  --font-heading: var(--font-switzer), Arial, Helvetica, sans-serif;
+
+  /* @medusajs/ui light-theme tokens (this project isn't wired to
+     @medusajs/ui-preset, which targets Tailwind v3 — these are the subset
+     of its real token values needed so Avatar, Badge, StatusBadge, Table
+     and Button render with Medusa's own design, not ad-hoc overrides). */
+  --color-ui-bg-base: #ffffff;
+  --color-ui-bg-base-hover: #f4f4f5;
+  --color-ui-bg-subtle: #fafafa;
+  --color-ui-bg-subtle-hover: #f4f4f5;
+  --color-ui-bg-component-hover: #f4f4f5;
+  --color-ui-bg-disabled: #f4f4f5;
+
+  --color-ui-fg-base: #18181b;
+  --color-ui-fg-subtle: #52525b;
+  --color-ui-fg-muted: #71717a;
+  --color-ui-fg-disabled: #a1a1aa;
+  --color-ui-fg-error: #e11d48;
+  /* Trellis reskins Medusa's stock interactive blue (#3b82f6) to its own
+     brand blue — this is the one token this product overrides. */
+  --color-ui-fg-interactive: #2876f5;
+  --color-ui-fg-on-color: #ffffff;
+  --color-ui-fg-on-inverted: #ffffff;
+
+  --color-ui-bg-interactive: #2876f5;
+  --color-ui-bg-interactive-soft: #f0f6fe;
+
+  --color-ui-border-base: #e4e4e7;
+  --color-ui-border-strong: #d4d4d8;
+
+  --color-ui-bg-switch-off: #e4e4e7;
+  --color-ui-bg-switch-off-hover: #d4d4d8;
+
+  --color-ui-button-neutral: #ffffff;
+  --color-ui-button-neutral-hover: #f4f4f5;
+  --color-ui-button-neutral-pressed: #e4e4e7;
+  --color-ui-button-transparent: rgba(255, 255, 255, 0);
+  --color-ui-button-transparent-hover: #f4f4f5;
+  --color-ui-button-transparent-pressed: #e4e4e7;
+  /* Brand blue primary button (Trellis reskins Medusa's stock near-black
+     "inverted" variant to its own brand blue — same override as fg-interactive). */
+  --color-ui-button-inverted: #2876f5;
+  --color-ui-button-inverted-hover: #0a5ce0;
+  --color-ui-button-inverted-pressed: #2876f5;
+  --color-ui-button-danger: #e11d48;
+  --color-ui-button-danger-hover: #be123c;
+  --color-ui-button-danger-pressed: #e11d48;
+
+  --color-ui-tag-green-bg: #d1fae5;
+  --color-ui-tag-green-text: #065f46;
+  --color-ui-tag-green-icon: #10b981;
+  --color-ui-tag-green-border: #a7f3d0;
+
+  --color-ui-tag-red-bg: #ffe4e6;
+  --color-ui-tag-red-text: #9f1239;
+  --color-ui-tag-red-icon: #f43f5e;
+  --color-ui-tag-red-border: #fecdd3;
+
+  --color-ui-tag-blue-bg: #dbeafe;
+  --color-ui-tag-blue-text: #1e40af;
+  --color-ui-tag-blue-icon: #60a5fa;
+  --color-ui-tag-blue-border: #bfdbfe;
+
+  --color-ui-tag-orange-bg: #ffedd5;
+  --color-ui-tag-orange-text: #9a3412;
+  --color-ui-tag-orange-icon: #f97316;
+  --color-ui-tag-orange-border: #fed7aa;
+
+  --color-ui-tag-purple-bg: #ede9fe;
+  --color-ui-tag-purple-text: #5b21b2;
+  --color-ui-tag-purple-icon: #a78bfa;
+  --color-ui-tag-purple-border: #ddd6fe;
+
+  --color-ui-tag-neutral-bg: #f4f4f5;
+  --color-ui-tag-neutral-text: #52525b;
+  --color-ui-tag-neutral-icon: #a1a1aa;
+  --color-ui-tag-neutral-border: #e4e4e7;
+
+  /* Alert component tones (figma node 49:8161) — a dedicated set, distinct
+     from the tag-* chip tokens above: alert borders/icons are more
+     saturated than StatusBadge's, so they can't share the same tokens. */
+  --color-ui-alert-neutral-bg: #f4f4f5;
+  --color-ui-alert-neutral-border: #d4d4d8;
+  --color-ui-alert-neutral-icon: #71717a;
+
+  --color-ui-alert-info-bg: #dbeafe;
+  --color-ui-alert-info-border: #93c5fd;
+  --color-ui-alert-info-icon: #3b82f6;
+
+  --color-ui-alert-success-bg: #d1fae5;
+  --color-ui-alert-success-border: #6ee7b7;
+  --color-ui-alert-success-icon: #10b981;
+
+  --color-ui-alert-warning-bg: #ffedd5;
+  --color-ui-alert-warning-border: #fdba74;
+  --color-ui-alert-warning-icon: #f97316;
+
+  --color-ui-alert-danger-bg: #ffe4e6;
+  --color-ui-alert-danger-border: #fda4af;
+  --color-ui-alert-danger-icon: #f43f5e;
+
+  --shadow-borders-base: 0px 1px 2px 0px rgba(0, 0, 0, 0.12),
+    0px 0px 0px 1px rgba(0, 0, 0, 0.08);
+  --shadow-buttons-neutral: 0px 1px 2px 0px rgba(0, 0, 0, 0.12),
+    0px 0px 0px 1px rgba(0, 0, 0, 0.08);
+  --shadow-buttons-neutral-focus: 0px 1px 2px 0px rgba(0, 0, 0, 0.12),
+    0px 0px 0px 1px rgba(0, 0, 0, 0.08), 0px 0px 0px 2px #ffffff,
+    0px 0px 0px 4px rgba(59, 130, 246, 0.6);
+  /* Brand variant of Medusa's buttons-inverted token (stock is near-black;
+     Trellis's primary action button is brand blue). */
+  --shadow-buttons-inverted: 0px 0.75px 0px 0px rgba(255, 255, 255, 0.2) inset,
+    0px 0px 0px 1px #0a5ce0;
+  --shadow-buttons-inverted-focus: var(--shadow-buttons-inverted),
+    0px 0px 0px 2px #ffffff, 0px 0px 0px 4px rgba(59, 130, 246, 0.6);
+  --shadow-buttons-danger: 0px 0.75px 0px 0px rgba(255, 255, 255, 0.2) inset,
+    0px 1px 2px 0px rgba(190, 18, 60, 0.4), 0px 0px 0px 1px #be123c;
+  --shadow-buttons-danger-focus: var(--shadow-buttons-danger),
+    0px 0px 0px 2px #ffffff, 0px 0px 0px 4px rgba(190, 18, 60, 0.5);
+  --shadow-elevation-flyout: 0px 0px 0px 1px rgba(0, 0, 0, 0.08),
+    0px 4px 8px 0px rgba(0, 0, 0, 0.08), 0px 8px 16px 0px rgba(0, 0, 0, 0.08);
+
+  /* Switch track/handle shadows (Medusa's @medusajs/ui-preset tokens, not
+     loaded here — see the @source note above for why this subset exists). */
+  --shadow-details-switch-background: 0px 2px 4px 0px rgba(0, 0, 0, 0.04),
+    inset 0px 0px 8px 0px rgba(0, 0, 0, 0.02),
+    inset 0px 0px 0px 0.75px rgba(0, 0, 0, 0.06),
+    inset 0px 2px 4px 0px rgba(0, 0, 0, 0.04),
+    inset 0px 1px 1px 0px rgba(0, 0, 0, 0.04);
+  --shadow-details-switch-background-focus: var(--shadow-details-switch-background),
+    0px 0px 0px 2px #ffffff, 0px 0px 0px 4px rgba(59, 130, 246, 0.6);
+  --shadow-details-switch-handle: 0px 0px 1px 0px rgba(0, 0, 0, 0.08),
+    0px 1px 2px 0px rgba(0, 0, 0, 0.12), 0px 3px 3px 0px rgba(0, 0, 0, 0.04),
+    0px 5px 4px 0px rgba(0, 0, 0, 0.02), 0px 0px 0px 0.5px rgba(0, 0, 0, 0.02),
+    inset 0px 1px 0px 0px #ffffff, inset 0px 0px 2px 1px #ffffff;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* @medusajs/ui typography utility classes (shipped by @medusajs/ui-preset's
+   Tailwind plugin, which this project doesn't load — see note above).
+   Font family is intentionally omitted so these inherit the page's
+   Switzer font instead of the preset's default Inter. */
+.txt-compact-xsmall {
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  font-weight: 400;
+}
+.txt-compact-xsmall-plus {
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+}
+.txt-compact-small {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  font-weight: 400;
+}
+.txt-compact-small-plus {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+}
+.txt-compact-medium {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 400;
+}
+.txt-compact-medium-plus {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  background: var(--color-ui-bg-subtle);
+  color: var(--color-ui-fg-base);
+  letter-spacing: 0;
+}
+
+button,
+input {
+  color: inherit;
+  font: inherit;
+  letter-spacing: 0;
+}
+
+button {
+  cursor: pointer;
+}
+
+img,
+svg {
+  display: block;
+}
+
+/* Renewal timeline: the still-to-come segment of the line flows to signal
+   time is still moving toward the deadline, rather than sitting static. */
+@keyframes timeline-flow {
+  to {
+    background-position: 16px 0;
+  }
+}
+.timeline-flow {
+  animation: timeline-flow 0.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline-flow {
+    animation: none;
+  }
+}
+
+/* Radix popovers (e.g. the DatePicker calendar) render as a body-level
+   portal and set z-index: auto inline, which beats a hand-rolled fixed
+   overlay modal (z-50) opened after them in the DOM — !important is needed
+   to win over that inline style. */
+[data-radix-popper-content-wrapper] {
+  z-index: 60 !important;
 }
