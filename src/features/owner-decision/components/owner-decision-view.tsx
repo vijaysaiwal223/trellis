@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { people } from "@/config/people";
 import type { DecisionAction, RenewalDetail } from "@/features/renewal-detail";
 import { renewals, useAssessedRenewals, windowHeadline } from "@/features/renewal-risk";
-import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
+import { isDecisionClosed, useRenewalRuntime, type DecisionRecord } from "@/lib/renewal-runtime-state";
 import { toVendorSlug } from "@/lib/vendor-slug";
 
 type OwnerAction = DecisionAction | "Not mine";
@@ -21,6 +21,35 @@ const actionCopy: Record<OwnerAction, string> = {
   Cancel: "Let it lapse — cancel before the notice deadline.",
   Escalate: "I need finance to make this call.",
   "Not mine": "I don't own this — someone else does.",
+};
+
+// Frame 8b — once the cancel-by date has passed, "cancel before the
+// deadline" isn't a real option anymore. Swap the label and copy for the
+// three paths that actually apply to a missed window; "Not mine" is
+// deadline-independent, so it's left out and falls back to the normal copy.
+const recoveryLabel: Partial<Record<OwnerAction, string>> = {
+  "Right-size": "Negotiate downsize",
+  Cancel: "Request goodwill cancellation",
+  Renew: "Accept & flag earlier next time",
+};
+const recoveryActionCopy: Partial<Record<OwnerAction, string>> = {
+  Renew: "Let it stand, but we'll check in with you earlier before the next window.",
+  "Right-size": "Ask for a smaller plan now that the window's closed.",
+  Cancel: "Ask the vendor to cancel anyway — not guaranteed, but worth asking.",
+};
+
+function displayLabel(action: OwnerAction | null | undefined, isPastCancelBy: boolean): string {
+  if (!action) return "";
+  if (!isPastCancelBy) return action;
+  return recoveryLabel[action] ?? action;
+}
+
+// What's still outstanding after the owner submits — only Renew is actually
+// done the moment it's recorded; everything else hands off real follow-through.
+const postSubmitCopy: Partial<Record<DecisionAction, string>> = {
+  "Right-size": "Finance has been notified. They'll confirm the new terms before this is final.",
+  Cancel: "Finance has been notified. The cancellation isn't final until it's confirmed with the vendor.",
+  Escalate: "Finance has been notified and will make the final call.",
 };
 
 export function OwnerDecisionView({
@@ -35,6 +64,7 @@ export function OwnerDecisionView({
   const resolution = resolutions[slug];
   const assessed = useAssessedRenewals(renewals);
   const row = assessed.find((entry) => entry.slug === slug)?.row;
+  const isPastCancelBy = (row?.daysToCancelBy ?? 0) < 0;
 
   const [action, setAction] = useState<OwnerAction | null>(presetAction ?? null);
   const [seats, setSeats] = useState("");
@@ -59,15 +89,33 @@ export function OwnerDecisionView({
 
   if (submitted || alreadyResolved) {
     const recordedAction = submitted ? action : resolution?.decision?.action;
+    const recordedDecision: DecisionRecord | undefined = submitted
+      ? action && action !== "Not mine"
+        ? { action, note: note.trim(), draft: false }
+        : undefined
+      : resolution?.decision;
+    const closed = recordedDecision ? isDecisionClosed(recordedDecision) : false;
     return (
       <div className="flex w-full max-w-[480px] flex-col gap-4">
         <Alert
-          tone="success"
-          title={recordedAction === "Not mine" ? "Thanks — we've reassigned it." : `Recorded: ${recordedAction}`}
+          tone={
+            recordedAction === "Not mine" || closed
+              ? "success"
+              : recordedAction === "Escalate"
+                ? "danger"
+                : "warning"
+          }
+          title={
+            recordedAction === "Not mine"
+              ? "Thanks — we've reassigned it."
+              : `Recorded: ${displayLabel(recordedAction, isPastCancelBy)}${closed ? "" : " — pending"}`
+          }
           description={
             recordedAction === "Not mine"
               ? `${reassignTo} has been notified and is now accountable for ${detail.vendor}.`
-              : "Finance has been notified. No further action needed until the next cycle."
+              : closed
+                ? "Finance has been notified. No further action needed until the next cycle."
+                : (postSubmitCopy[recordedAction as DecisionAction] ?? "Finance has been notified.")
           }
         />
         <Link href={`/renewals/${slug}`} className="text-[14px] font-medium text-ui-fg-interactive hover:underline">
@@ -101,6 +149,12 @@ export function OwnerDecisionView({
         {yoy ? `, price ${yoy} YoY` : ""}.
       </Text>
 
+      {isPastCancelBy ? (
+        <Text as="p" className="text-[12px] font-medium uppercase tracking-wide text-ui-fg-error">
+          Cancel-by already passed — here&apos;s what&apos;s actually still open
+        </Text>
+      ) : null}
+
       <div className="grid grid-cols-2 gap-2">
         {(["Renew", "Right-size", "Cancel", "Not mine"] as const).map((option) => (
           <button
@@ -121,10 +175,10 @@ export function OwnerDecisionView({
                 action === option ? "text-ui-fg-interactive" : "text-ui-fg-base",
               )}
             >
-              {option}
+              {displayLabel(option, isPastCancelBy)}
             </Text>
             <Text as="span" className="text-[12px] leading-4 text-ui-fg-subtle">
-              {actionCopy[option]}
+              {isPastCancelBy ? (recoveryActionCopy[option] ?? actionCopy[option]) : actionCopy[option]}
             </Text>
           </button>
         ))}

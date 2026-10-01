@@ -31,6 +31,28 @@ export type RenewalResolution = {
   ownerAssigned?: string;
 };
 
+/**
+ * Recording a decision isn't the same as the underlying work being done —
+ * Cancel and Escalate both hand off real-world follow-through (confirming
+ * with the vendor, finance actually reviewing) that this prototype can't
+ * verify, and Right-size only closes once the negotiated terms are final.
+ * Only Renew is a complete action the moment it's recorded.
+ */
+export function isDecisionClosed(decision: DecisionRecord): boolean {
+  if (decision.draft) return false;
+  switch (decision.action) {
+    case "Renew":
+      return true;
+    case "Right-size":
+      return decision.renewalStatus === "Finalized";
+    case "Cancel":
+    case "Escalate":
+      return false;
+    default:
+      return false;
+  }
+}
+
 type RenewalRuntimeContextValue = {
   /** Keyed by vendor slug (see @/lib/vendor-slug). */
   resolutions: Record<string, RenewalResolution>;

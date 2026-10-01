@@ -40,7 +40,7 @@ export const renewalDetails: Record<string, RenewalDetail> = {
     recommendation: {
       title: "Renegotiate before renewal",
       description:
-        "64% seat usage and +22% YoY price change suggest a strong opportunity to reduce spend.",
+        "Usage is down to 64% while the price is up 22% YoY — you're paying more for less. Worth pushing back before this renews.",
       primaryAction: "Review usage",
       secondaryAction: "Mark decision",
     },
@@ -102,7 +102,7 @@ export const renewalDetails: Record<string, RenewalDetail> = {
     ownerOptions: ["Rohan Mehta", "Maya Rao", "Priya Nair"],
     recommendation: {
       title: "On track to renew",
-      description: "85% seat usage supports renewing at the current plan size.",
+      description: "85% of seats are active and earning their keep — renewing at the current size is the safe call.",
       primaryAction: "Review usage",
       secondaryAction: "Mark decision",
     },
@@ -164,7 +164,7 @@ export const renewalDetails: Record<string, RenewalDetail> = {
     ownerOptions: ["Priya Nair", "Rohan Mehta", "Maya Rao"],
     recommendation: {
       title: "Assign an owner before Sep 28",
-      description: "Manual renewals still need a named owner to make the call in time.",
+      description: "Nobody's watching this one, and manual renewals don't decide themselves — assign an owner before the window closes in 2 days.",
       primaryAction: "Review usage",
       secondaryAction: "Mark decision",
     },
@@ -226,7 +226,7 @@ export const renewalDetails: Record<string, RenewalDetail> = {
     ownerOptions: ["Rohan Mehta", "Maya Rao", "Priya Nair"],
     recommendation: {
       title: "Confirm usage need",
-      description: "High risk flag is from missing usage confirmation, not low usage.",
+      description: "88% usage looks healthy — the one open item is confirming it's still needed before the next cancel-by window.",
       primaryAction: "Review usage",
       secondaryAction: "Mark decision",
     },
@@ -288,7 +288,7 @@ export const renewalDetails: Record<string, RenewalDetail> = {
     ownerOptions: ["Rohan Mehta", "Maya Rao", "Priya Nair"],
     recommendation: {
       title: "Record a renewal decision",
-      description: "Usage and ownership are confirmed — only the decision itself is outstanding.",
+      description: "Usage and ownership are settled — the only thing left is your call: renew, right-size, or cancel.",
       primaryAction: "Review usage",
       secondaryAction: "Mark decision",
     },

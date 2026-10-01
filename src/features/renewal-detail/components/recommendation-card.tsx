@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { teamOf } from "@/config/people";
-import type { DecisionRecord } from "@/lib/renewal-runtime-state";
+import { isDecisionClosed, type DecisionRecord } from "@/lib/renewal-runtime-state";
 
 import type { DecisionAction, RenewalDetail } from "../types";
 
@@ -49,16 +49,44 @@ function NeedsReviewIcon() {
   );
 }
 
-const decisionOptions: {
+type DecisionOption = {
   action: DecisionAction;
   label: string;
   description: string;
   icon: () => React.ReactElement;
-}[] = [
+};
+
+const decisionOptions: DecisionOption[] = [
   { action: "Renew", label: "Keep", description: "Renew as planned", icon: KeepIcon },
   { action: "Right-size", label: "Renegotiate", description: "Adjust terms or reduce spend", icon: RenegotiateIcon },
   { action: "Cancel", label: "Cancel", description: "Do not renew", icon: CancelIcon },
   { action: "Escalate", label: "Needs review", description: "More analysis required", icon: NeedsReviewIcon },
+];
+
+// Frame 8b — once cancel-by has passed, "Cancel as planned" and "renew as
+// planned" aren't real options anymore (the window to do either cleanly is
+// gone), so swap in the three paths that actually apply to a missed window.
+// Each still maps to an existing DecisionAction so closure/exposure logic
+// (isDecisionClosed) doesn't need special-casing for the recovery path.
+const recoveryOptions: DecisionOption[] = [
+  {
+    action: "Right-size",
+    label: "Negotiate downsize",
+    description: "Ask for a smaller plan now that the window's closed",
+    icon: RenegotiateIcon,
+  },
+  {
+    action: "Cancel",
+    label: "Request goodwill cancellation",
+    description: "Ask the vendor to cancel anyway, past notice",
+    icon: CancelIcon,
+  },
+  {
+    action: "Renew",
+    label: "Accept & alert next cycle",
+    description: "Let it stand, but flag it earlier before the next window",
+    icon: KeepIcon,
+  },
 ];
 
 function Stat({ label, value, valueClassName }: { label: string; value: string; valueClassName?: string }) {
@@ -97,6 +125,17 @@ export function RecommendationCard({
   isPastCancelBy,
 }: RecommendationCardProps) {
   const isFinal = !!decision && !decision.draft;
+  const isClosed = isFinal && isDecisionClosed(decision!);
+  // Which set of options is showing right now — used both to render the
+  // picker and to look up the right label for an already-recorded decision.
+  const options = isPastCancelBy ? recoveryOptions : decisionOptions;
+  const pendingFollowUp: Partial<Record<DecisionAction, string>> = {
+    Cancel: isPastCancelBy
+      ? "Still pending: the vendor has to agree to this — notice has already passed, so it's goodwill, not a guarantee."
+      : "Still pending: confirm the cancellation with the vendor before the cancel-by date.",
+    "Right-size": "Still pending: mark the renewal status Finalized once new terms are confirmed.",
+    Escalate: "Still pending: finance needs to make the final call.",
+  };
 
   const [action, setAction] = useState<DecisionAction>(decision?.action ?? "Renew");
   const [targetOutcome, setTargetOutcome] = useState(decision?.targetOutcome ?? "");
@@ -152,10 +191,16 @@ export function RecommendationCard({
 
       <div className="flex w-full flex-col gap-4 overflow-y-auto p-4">
         {isFinal ? (
-          <Alert tone="success">
+          <Alert tone={isClosed ? "success" : decision!.action === "Escalate" ? "danger" : "warning"}>
             <Text as="span" className="text-[14px] font-medium leading-5 text-ui-fg-base">
-              Decision recorded — {decisionOptions.find((o) => o.action === decision!.action)?.label ?? decision!.action}
+              {isClosed ? "Decision recorded" : "Decision recorded — pending"} —{" "}
+              {options.find((o) => o.action === decision!.action)?.label ?? decision!.action}
             </Text>
+            {!isClosed ? (
+              <Text as="span" className="text-[12px] leading-4 text-ui-fg-base">
+                {pendingFollowUp[decision!.action] ?? "Still pending follow-through."}
+              </Text>
+            ) : null}
             {decision!.note ? (
               <Text as="span" className="text-[12px] leading-4 text-ui-fg-base">
                 &ldquo;{decision!.note}&rdquo;
@@ -192,11 +237,11 @@ export function RecommendationCard({
               </Text>
               {isPastCancelBy ? (
                 <Text as="span" className="mb-2 block text-[12px] font-medium uppercase tracking-wide text-ui-fg-error">
-                  Cancel-by already passed — pick carefully
+                  Cancel-by already passed — here&apos;s what&apos;s actually still open
                 </Text>
               ) : null}
-              <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4">
-                {decisionOptions.map((option) => {
+              <div className={`grid w-full grid-cols-2 gap-2 ${isPastCancelBy ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}>
+                {options.map((option) => {
                   const Icon = option.icon;
                   const isSelected = action === option.action;
                   return (

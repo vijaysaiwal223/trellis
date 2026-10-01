@@ -4,7 +4,7 @@ import { Avatar, StatusBadge, Table, Text } from "@medusajs/ui";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
+import { isDecisionClosed, useRenewalRuntime } from "@/lib/renewal-runtime-state";
 import { toVendorSlug } from "@/lib/vendor-slug";
 
 import type { BadgeColor, Renewal, Risk } from "../types";
@@ -12,11 +12,19 @@ import type { BadgeColor, Renewal, Risk } from "../types";
 import { RiskBadge } from "./risk-badge";
 import { StackedCellText } from "./stacked-cell-text";
 
-const decisionDisplay: Record<string, { status: string; statusTone: BadgeColor }> = {
+// Shown once a decision has actually closed the risk out — nothing more to do.
+const closedDecisionDisplay: Record<string, { status: string; statusTone: BadgeColor }> = {
   Renew: { status: "Renewed", statusTone: "green" },
   "Right-size": { status: "Right-sized", statusTone: "green" },
-  Cancel: { status: "Cancelled", statusTone: "grey" },
-  Escalate: { status: "Escalated", statusTone: "blue" },
+};
+
+// Shown when a decision is recorded but still needs real-world follow-through
+// (vendor confirmation, finance review, finalized terms) — distinct wording
+// so the queue never claims work is done when it isn't.
+const pendingDecisionDisplay: Record<string, { status: string; statusTone: BadgeColor }> = {
+  "Right-size": { status: "Negotiation in progress", statusTone: "blue" },
+  Cancel: { status: "Cancellation pending", statusTone: "orange" },
+  Escalate: { status: "Escalated — awaiting finance", statusTone: "blue" },
 };
 
 // A left accent on rows that actually need attention, so the eye can triage
@@ -43,10 +51,14 @@ export function RenewalRow({ row: baseRow }: RenewalRowProps) {
   const resolution = resolutions[toVendorSlug(baseRow.vendor)];
 
   const finalDecision = resolution?.decision && !resolution.decision.draft ? resolution.decision : undefined;
+  const closed = finalDecision ? isDecisionClosed(finalDecision) : false;
 
   let row = baseRow;
-  if (finalDecision) {
-    const mapped = decisionDisplay[finalDecision.action];
+  if (finalDecision && closed) {
+    const mapped = closedDecisionDisplay[finalDecision.action];
+    row = { ...row, ...mapped, action: "View" };
+  } else if (finalDecision) {
+    const mapped = pendingDecisionDisplay[finalDecision.action];
     row = { ...row, ...mapped, action: "View" };
   } else if (resolution?.ownerAssigned && row.status === "Assign owner") {
     row = { ...row, status: "In review", statusTone: "blue" };
@@ -58,8 +70,11 @@ export function RenewalRow({ row: baseRow }: RenewalRowProps) {
   // Escalation state overrides the status badge instead of stacking a
   // contradicting caption under it (e.g. a green "On track" badge next to a
   // red "Needs your decision" line) — and distinguishes "owner still has it"
-  // from "nobody's accountable, it's on admin now".
-  const escalationState = finalDecision ? "none" : row.escalationState;
+  // from "nobody's accountable, it's on admin now". It only clears once a
+  // decision has actually closed the risk — a pending decision (cancellation
+  // requested, negotiation open, escalated to finance) hasn't resolved
+  // anything, so urgency/ownerless signals still apply.
+  const escalationState = closed ? "none" : row.escalationState;
   const statusLabel =
     escalationState === "needsDecision"
       ? "Needs your decision"

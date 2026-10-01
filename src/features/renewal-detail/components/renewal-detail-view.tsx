@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
 import { renewals, useAssessedRenewals } from "@/features/renewal-risk";
-import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
+import { isDecisionClosed, useRenewalRuntime } from "@/lib/renewal-runtime-state";
 
 import { AiSuggestionCard } from "./ai-suggestion-card";
 import { AssignOwnerModal } from "./assign-owner-modal";
@@ -53,22 +53,30 @@ export function RenewalDetailView({ detail }: { detail: RenewalDetail }) {
 
   const statusAlert = useMemo(() => {
     if (decision) {
-      const tone =
-        decision.action === "Cancel"
-          ? "info"
-          : decision.action === "Renew" || decision.action === "Right-size"
-            ? "success"
-            : "danger";
+      const closed = isDecisionClosed(decision);
+      // Only a closed decision (Renew, or Right-size once terms are
+      // Finalized) means nothing more needs to happen. Cancel and Escalate
+      // hand off real-world follow-through this prototype can't verify, and
+      // an in-progress negotiation isn't done just because it was recorded —
+      // the banner has to say so honestly instead of claiming closure.
+      const pendingCopy: Partial<Record<typeof decision.action, string>> = {
+        Cancel: isPastCancelBy
+          ? `Goodwill cancellation requested for ${detail.vendor} after the cancel-by date — the vendor has to agree, it isn't guaranteed.`
+          : `Cancellation requested for ${detail.vendor}. This isn't complete until the vendor confirms it before the cancel-by date.`,
+        "Right-size": `Negotiation in progress for ${detail.vendor}. Mark the renewal status Finalized once new terms are confirmed.`,
+        Escalate: `${detail.vendor} was escalated to finance for further review — still needs a final call.`,
+      };
+      const defaultDescription = closed
+        ? `${detail.vendor} marked to ${decision.action.toLowerCase()} by you just now. No further action needed until the next cycle.`
+        : (pendingCopy[decision.action] ?? `${detail.vendor} has a decision pending follow-through.`);
       return {
-        tone,
-        title: `Decision recorded — ${decision.action}`,
-        description:
-          decision.note ||
-          `${detail.vendor} marked to ${decision.action.toLowerCase()} by you just now. No further action needed until the next cycle.`,
+        tone: closed ? "success" : decision.action === "Escalate" ? "danger" : "warning",
+        title: `${closed ? "Decision recorded" : "Decision recorded — pending"} — ${decision.action}`,
+        description: decision.note ? `${defaultDescription} "${decision.note}"` : defaultDescription,
       } as const;
     }
     return detail.statusAlert;
-  }, [decision, detail]);
+  }, [decision, detail, isPastCancelBy]);
 
   const currentOwnerName = resolution?.ownerAssigned ?? (ownerDeparted ? undefined : currentOwner);
 

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 
-import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
+import { isDecisionClosed, useRenewalRuntime } from "@/lib/renewal-runtime-state";
 import { toVendorSlug } from "@/lib/vendor-slug";
 
 import { assessRenewal } from "./assessment";
@@ -20,7 +20,10 @@ export function useAssessedRenewals(renewals: RenewalSeed[]) {
         return {
           slug,
           row: assessRenewal(seed, resolution?.ownerAssigned, departedOwners),
-          resolved: Boolean(resolution?.decision && !resolution.decision.draft),
+          // "Resolved" means the risk is actually closed, not just that a
+          // decision was recorded — an escalated or cancellation-pending
+          // renewal still has real exposure until someone finishes the job.
+          resolved: Boolean(resolution?.decision && isDecisionClosed(resolution.decision)),
         };
       }),
     [renewals, resolutions, departedOwners],
