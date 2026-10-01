@@ -182,7 +182,7 @@ export function AiAssistantPanel({
 
   return (
     <aside
-      aria-label="Trellis AI assistant"
+      aria-label="Bruno assistant"
       id="renewal-ai-panel"
       className="fixed inset-y-0 right-0 z-40 flex w-[min(400px,100vw)] flex-col border-l border-ui-border-base bg-ui-bg-base shadow-elevation-flyout 2xl:static 2xl:z-auto 2xl:-ml-px 2xl:w-[380px] 2xl:shrink-0 2xl:overflow-hidden 2xl:rounded-[12px] 2xl:border 2xl:shadow-none"
     >
@@ -192,13 +192,13 @@ export function AiAssistantPanel({
             <RiSparkling2Line className="size-[18px]" />
           </div>
           <div>
-            <h2 className="text-[16px] font-semibold leading-5 text-ui-fg-base">Trellis AI</h2>
+            <h2 className="text-[16px] font-semibold leading-5 text-ui-fg-base">Bruno</h2>
             <Text as="p" className="text-[12px] leading-4 text-ui-fg-subtle">
               {context.kind === "vendor" ? `Ask about ${context.facts.vendor}` : "Ask about your renewals"}
             </Text>
           </div>
         </div>
-        <button type="button" aria-label="Close AI assistant" onClick={onClose}
+        <button type="button" aria-label="Close Bruno assistant" onClick={onClose}
           className="flex size-8 items-center justify-center rounded-lg text-ui-fg-muted hover:bg-ui-bg-subtle focus-visible:outline-2 focus-visible:outline-ui-bg-interactive">
           <RiCloseLine className="size-5" />
         </button>
@@ -209,7 +209,7 @@ export function AiAssistantPanel({
           <div className="space-y-4">
             <div className="rounded-xl border border-ui-border-base bg-ui-bg-subtle px-3 py-3">
               <Text as="p" className="text-[14px] font-medium leading-5 text-ui-fg-base">
-                {context.kind === "vendor" ? "Review this renewal with AI" : "Review your renewals with AI"}
+                {context.kind === "vendor" ? "Review this renewal with Bruno" : "Review your renewals with Bruno"}
               </Text>
               <Text as="p" className="mt-1 text-[12px] leading-4 text-ui-fg-subtle">
                 {context.kind === "vendor"
@@ -231,9 +231,10 @@ export function AiAssistantPanel({
                 state={exchange.pending ? "working" : "default"}
                 size={36}
                 color="#2876f5"
+                ink="#ffffff"
                 theme="light"
                 interactive={false}
-                aria-label={exchange.pending ? "Trellis AI is generating an answer" : "Trellis AI"}
+                aria-label={exchange.pending ? "Bruno is generating an answer" : "Bruno"}
               />
               <div className="min-w-0 flex-1 pt-1 text-[14px] leading-5 text-ui-fg-base">
                 {exchange.pending && !exchange.answer ? (
@@ -283,7 +284,7 @@ export function AiAssistantPanel({
         <BorderBeam size="pulse-inner" theme="light" colorVariant="colorful" strength={0.75} duration={3.2} borderRadius={12} className="w-full">
           <form onSubmit={submit} className="rounded-xl border border-ui-border-base bg-ui-bg-base p-2 shadow-elevation-card-rest">
             <label htmlFor="renewal-ai-question" className="sr-only">
-              {context.kind === "vendor" ? "Ask Trellis AI about this renewal" : "Ask Trellis AI about your renewals"}
+              {context.kind === "vendor" ? "Ask Bruno about this renewal" : "Ask Bruno about your renewals"}
             </label>
             <textarea id="renewal-ai-question" autoFocus value={question} onChange={(event) => setQuestion(event.target.value)}
               onKeyDown={onQuestionKeyDown} rows={3} maxLength={300}
@@ -292,7 +293,7 @@ export function AiAssistantPanel({
             />
             <div className="flex items-center justify-between px-1 pb-1">
               <Text as="span" className="text-[11px] text-ui-fg-muted">Based on available data</Text>
-              <button type="submit" disabled={!question.trim() || pending} aria-label="Ask Trellis AI"
+              <button type="submit" disabled={!question.trim() || pending} aria-label="Ask Bruno"
                 className="flex size-8 items-center justify-center rounded-lg bg-ui-bg-interactive text-white hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-bg-interactive disabled:cursor-not-allowed disabled:opacity-40">
                 <RiArrowUpLine className="size-[17px]" />
               </button>

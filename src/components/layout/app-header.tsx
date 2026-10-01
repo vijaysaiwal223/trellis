@@ -1,9 +1,9 @@
 "use client";
 
 import { BorderBeam } from "border-beam";
+import { BotAvatar } from "bot-avatars";
 import Image from "next/image";
 import { Text } from "@medusajs/ui";
-import { RiSparkling2Line } from "@remixicon/react";
 
 import { Button } from "@/components/ui/button";
 import { iconPath } from "@/lib/assets";
@@ -29,10 +29,10 @@ export function AppHeader() {
         </Text>
       </div>
       <div className="flex min-w-0 flex-1 items-center justify-end gap-3 pl-4">
-        <BorderBeam size="pulse-inner" theme="light" colorVariant="ocean" strength={0.5} active={!isOpen} borderRadius={6} className="shrink-0 rounded-md">
+        <BorderBeam size="pulse-inner" theme="light" colorVariant="ocean" strength={0.5} active={!isOpen} borderRadius={6} className="flex shrink-0 rounded-md">
           <Button variant="secondary" size="base" onClick={open} aria-expanded={isOpen} aria-controls="renewal-ai-panel"
-            leftIcon={<RiSparkling2Line className="size-4 text-ui-fg-interactive" />}>
-            Ask AI
+            leftIcon={<BotAvatar type="blob" state="default" size={28} color="#2876f5" ink="#ffffff" theme="light" interactive={false} aria-hidden="true" />}>
+            Ask Bruno
           </Button>
         </BorderBeam>
         <NotificationMenu />

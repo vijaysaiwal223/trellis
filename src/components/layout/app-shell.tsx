@@ -73,7 +73,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
           <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</main>
           {isOpen ? (
             <>
-              <button type="button" aria-label="Close AI assistant" onClick={close}
+              <button type="button" aria-label="Close Bruno assistant" onClick={close}
                 className="fixed inset-0 z-30 bg-ui-fg-base/30 2xl:hidden" />
               <AiAssistantPanel
                 key={detail ? suggestionKey : "portfolio"}
