@@ -1,6 +1,14 @@
 "use client";
 
 import { Avatar, DatePicker, Text } from "@medusajs/ui";
+import {
+  RiCheckboxCircleLine,
+  RiCloseCircleLine,
+  RiCloseLine,
+  RiExchangeLine,
+  RiTimeLine,
+  type RemixiconComponentType,
+} from "@remixicon/react";
 import { useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
@@ -14,53 +22,19 @@ const NOTE_LIMIT = 500;
 
 const renewalStatusOptions = ["Not started", "In negotiation", "Pending approval", "Finalized"] as const;
 
-function KeepIcon() {
-  return (
-    <svg viewBox="0 0 20 20" className="size-5 text-ui-tag-green-icon" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="10" cy="10" r="7.5" />
-      <path d="m6.8 10 2.2 2.2 4.2-4.4" />
-    </svg>
-  );
-}
-
-function RenegotiateIcon() {
-  return (
-    <svg viewBox="0 0 20 20" className="size-5 text-ui-fg-interactive" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 7h9.5l-2-2M16 13H6.5l2 2" />
-    </svg>
-  );
-}
-
-function CancelIcon() {
-  return (
-    <svg viewBox="0 0 20 20" className="size-5 text-ui-fg-error" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="10" cy="10" r="7.5" />
-      <path d="m7.3 7.3 5.4 5.4M12.7 7.3l-5.4 5.4" />
-    </svg>
-  );
-}
-
-function NeedsReviewIcon() {
-  return (
-    <svg viewBox="0 0 20 20" className="size-5 text-ui-fg-muted" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="10" cy="10" r="7.5" />
-      <path d="M10 6v4l2.6 1.6" />
-    </svg>
-  );
-}
-
 type DecisionOption = {
   action: DecisionAction;
   label: string;
   description: string;
-  icon: () => React.ReactElement;
+  icon: RemixiconComponentType;
+  iconClassName: string;
 };
 
 const decisionOptions: DecisionOption[] = [
-  { action: "Renew", label: "Keep", description: "Renew as planned", icon: KeepIcon },
-  { action: "Right-size", label: "Renegotiate", description: "Adjust terms or reduce spend", icon: RenegotiateIcon },
-  { action: "Cancel", label: "Cancel", description: "Do not renew", icon: CancelIcon },
-  { action: "Escalate", label: "Needs review", description: "More analysis required", icon: NeedsReviewIcon },
+  { action: "Renew", label: "Keep", description: "Renew as planned", icon: RiCheckboxCircleLine, iconClassName: "text-ui-tag-green-icon" },
+  { action: "Right-size", label: "Renegotiate", description: "Adjust terms or reduce spend", icon: RiExchangeLine, iconClassName: "text-ui-fg-interactive" },
+  { action: "Cancel", label: "Cancel", description: "Do not renew", icon: RiCloseCircleLine, iconClassName: "text-ui-fg-error" },
+  { action: "Escalate", label: "Needs review", description: "More analysis required", icon: RiTimeLine, iconClassName: "text-ui-fg-muted" },
 ];
 
 // Frame 8b — once cancel-by has passed, "Cancel as planned" and "renew as
@@ -73,19 +47,22 @@ const recoveryOptions: DecisionOption[] = [
     action: "Right-size",
     label: "Negotiate downsize",
     description: "Ask for a smaller plan now that the window's closed",
-    icon: RenegotiateIcon,
+    icon: RiExchangeLine,
+    iconClassName: "text-ui-fg-interactive",
   },
   {
     action: "Cancel",
     label: "Request goodwill cancellation",
     description: "Ask the vendor to cancel anyway, past notice",
-    icon: CancelIcon,
+    icon: RiCloseCircleLine,
+    iconClassName: "text-ui-fg-error",
   },
   {
     action: "Renew",
     label: "Accept & alert next cycle",
     description: "Let it stand, but flag it earlier before the next window",
-    icon: KeepIcon,
+    icon: RiCheckboxCircleLine,
+    iconClassName: "text-ui-tag-green-icon",
   },
 ];
 
@@ -112,6 +89,8 @@ type RecommendationCardProps = {
   onSave: (decision: DecisionRecord) => void;
   onClose: () => void;
   isPastCancelBy?: boolean;
+  suggestedAction?: DecisionAction;
+  suggestedReasoning?: string;
 };
 
 export function RecommendationCard({
@@ -123,6 +102,8 @@ export function RecommendationCard({
   onSave,
   onClose,
   isPastCancelBy,
+  suggestedAction,
+  suggestedReasoning,
 }: RecommendationCardProps) {
   const isFinal = !!decision && !decision.draft;
   const isClosed = isFinal && isDecisionClosed(decision!);
@@ -138,20 +119,30 @@ export function RecommendationCard({
   };
 
   const [action, setAction] = useState<DecisionAction>(decision?.action ?? "Renew");
+  const [actionEdited, setActionEdited] = useState(false);
   const [targetOutcome, setTargetOutcome] = useState(decision?.targetOutcome ?? "");
   const [renewalStatus, setRenewalStatus] = useState(decision?.renewalStatus ?? renewalStatusOptions[0]);
   const [note, setNote] = useState(decision?.note ?? "");
+  const [noteEdited, setNoteEdited] = useState(false);
   const [followUpBy, setFollowUpBy] = useState<Date | null>(
     decision?.followUpBy ? new Date(decision.followUpBy) : null,
   );
+
+  // Derived defaults can arrive while the modal is open without replacing edits.
+  const selectedAction = !decision && !actionEdited && suggestedAction && options.some((option) => option.action === suggestedAction)
+    ? suggestedAction
+    : action;
+  const displayedNote = !decision && !noteEdited && suggestedReasoning
+    ? suggestedReasoning.slice(0, NOTE_LIMIT)
+    : note;
 
   const owner = currentOwnerName ?? ownerOptions[0] ?? "";
   const annualContract = detail.contactDetails.find((row) => row.label === "Annual contract")?.value;
   const yoyChange = detail.contactDetails.find((row) => row.label === "YoY price change")?.value;
 
   const buildRecord = (draft: boolean): DecisionRecord => ({
-    action,
-    note: note.trim(),
+    action: selectedAction,
+    note: displayedNote.trim(),
     targetOutcome: targetOutcome.trim() || undefined,
     renewalStatus,
     followUpBy: followUpBy ? followUpBy.toISOString().slice(0, 10) : undefined,
@@ -183,9 +174,7 @@ export function RecommendationCard({
           onClick={onClose}
           className="flex size-7 shrink-0 items-center justify-center rounded-lg text-ui-fg-muted hover:bg-ui-bg-subtle-hover"
         >
-          <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-            <path d="m5 5 10 10M15 5 5 15" />
-          </svg>
+          <RiCloseLine className="size-4" />
         </button>
       </div>
 
@@ -243,12 +232,15 @@ export function RecommendationCard({
               <div className={`grid w-full grid-cols-2 gap-2 ${isPastCancelBy ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}>
                 {options.map((option) => {
                   const Icon = option.icon;
-                  const isSelected = action === option.action;
+                  const isSelected = selectedAction === option.action;
                   return (
                     <button
                       key={option.action}
                       type="button"
-                      onClick={() => setAction(option.action)}
+                      onClick={() => {
+                        setActionEdited(true);
+                        setAction(option.action);
+                      }}
                       className={
                         "flex flex-col items-start gap-1.5 rounded-[8px] border px-3 py-2.5 text-left transition-colors " +
                         (isSelected
@@ -256,7 +248,7 @@ export function RecommendationCard({
                           : "border-ui-border-base bg-ui-bg-base hover:bg-ui-bg-subtle")
                       }
                     >
-                      <Icon />
+                      <Icon className={`size-5 ${option.iconClassName}`} />
                       <Text as="span" className="text-[14px] font-medium leading-5 text-ui-fg-base">
                         {option.label}
                       </Text>
@@ -331,12 +323,15 @@ export function RecommendationCard({
                     Internal note
                   </Text>
                   <Text as="span" className="text-[12px] leading-4 text-ui-fg-muted">
-                    {note.length}/{NOTE_LIMIT}
+                    {displayedNote.length}/{NOTE_LIMIT}
                   </Text>
                 </div>
                 <textarea
-                  value={note}
-                  onChange={(event) => setNote(event.target.value.slice(0, NOTE_LIMIT))}
+                  value={displayedNote}
+                  onChange={(event) => {
+                    setNoteEdited(true);
+                    setNote(event.target.value.slice(0, NOTE_LIMIT));
+                  }}
                   rows={3}
                   placeholder="Add context for whoever picks this up next"
                   className="w-full resize-none rounded-[6px] border border-ui-border-base bg-ui-bg-base px-2 py-1.5 text-[14px] text-ui-fg-base outline-none placeholder:text-ui-fg-muted"

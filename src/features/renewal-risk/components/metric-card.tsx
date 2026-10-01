@@ -1,7 +1,5 @@
 import { Text, clx } from "@medusajs/ui";
 
-import { AssetIcon } from "@/components/ui/asset-icon";
-
 import type { RenewalMetric } from "../metrics";
 
 export function MetricCard({
@@ -13,6 +11,7 @@ export function MetricCard({
   active?: boolean;
   onSelect?: () => void;
 }) {
+  const Icon = metric.icon;
   return (
     <button
       type="button"
@@ -25,7 +24,7 @@ export function MetricCard({
           : "border-ui-border-base bg-ui-bg-subtle hover:bg-ui-bg-subtle-hover",
       )}
     >
-      <AssetIcon src={metric.icon} alt="" className="mt-0.5" />
+      <Icon className="mt-0.5 size-5 shrink-0 text-ui-fg-subtle" />
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <Text
           as="div"

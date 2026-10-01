@@ -4,7 +4,6 @@ import { Badge, Button, Text, clx } from "@medusajs/ui";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { AssetIcon } from "@/components/ui/asset-icon";
 import type { NavItem } from "@/config/navigation";
 
 export function NavButton({ item }: { item: NavItem }) {
@@ -14,10 +13,11 @@ export function NavButton({ item }: { item: NavItem }) {
       ? pathname === "/" || pathname.startsWith("/renewals")
       : pathname === item.href
     : false;
+  const Icon = item.icon;
 
   const content = (
     <>
-      <AssetIcon src={item.icon} alt="" />
+      <Icon className="size-5 shrink-0" />
       <Text as="span" className="min-w-0 truncate text-[14px] leading-5">
         {item.label}
       </Text>

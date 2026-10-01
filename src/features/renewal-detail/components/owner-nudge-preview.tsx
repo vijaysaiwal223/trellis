@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Text } from "@medusajs/ui";
+import { RiCloseLine } from "@remixicon/react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -48,9 +49,7 @@ export function OwnerNudgePreview({ detail }: { detail: RenewalDetail }) {
                 onClick={() => setOpen(false)}
                 className="flex size-6 items-center justify-center rounded text-ui-fg-muted hover:bg-ui-bg-subtle-hover"
               >
-                <svg viewBox="0 0 20 20" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                  <path d="m5 5 10 10M15 5 5 15" />
-                </svg>
+                <RiCloseLine className="size-3.5" />
               </button>
             </div>
 

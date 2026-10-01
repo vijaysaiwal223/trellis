@@ -1,13 +1,12 @@
 "use client";
 
 import { IconButton, Text, clx } from "@medusajs/ui";
+import { RiNotification3Line } from "@remixicon/react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { AssetIcon } from "@/components/ui/asset-icon";
 import { renewals, useAssessedRenewals, windowHeadline } from "@/features/renewal-risk";
 import { integrationApps } from "@/config/integrations";
-import { iconPath } from "@/lib/assets";
 import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
 import { toVendorSlug } from "@/lib/vendor-slug";
 
@@ -42,7 +41,7 @@ export function NotificationMenu() {
         onClick={() => setOpen((visible) => !visible)}
         className="!flex !size-8 !items-center !justify-center rounded-full !bg-ui-bg-base !shadow-borders-base hover:!bg-ui-bg-base-hover after:hidden"
       >
-        <AssetIcon src={iconPath("notification")} alt="" />
+        <RiNotification3Line className="size-5 text-ui-fg-subtle" />
       </IconButton>
       {alerts.length > 0 ? (
         <span className="pointer-events-none absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-ui-tag-red-icon px-1 text-[11px] font-bold leading-4 text-white">

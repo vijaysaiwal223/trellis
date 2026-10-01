@@ -62,4 +62,12 @@ export type RenewalDetail = {
   ownership: DetailRow[];
   /** Payment history — past renewal amounts, most recent last. Matches the given data model's "payment history and YoY price change". */
   paymentHistory: { period: string; amount: number }[];
+  /**
+   * Added field #2 (see FRAMING-MEMO.md): monthly purchased/active seat
+   * history, most recent last — the current snapshot is in `plan`, this is
+   * the trend behind it. Plausible because "active seats" is already sourced
+   * from SSO logs (per the brief), and SSO activity is inherently a time
+   * series, not a single read.
+   */
+  usageTrend: { month: string; purchasedSeats: number; activeSeats: number }[];
 };

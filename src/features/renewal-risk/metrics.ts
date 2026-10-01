@@ -1,4 +1,11 @@
-import { iconPath } from "@/lib/assets";
+import {
+  RiAlarmWarningLine,
+  RiBankLine,
+  RiMoneyDollarCircleLine,
+  RiTimerLine,
+  RiUserUnfollowLine,
+  type RemixiconComponentType,
+} from "@remixicon/react";
 
 import type { Renewal } from "./types";
 
@@ -6,7 +13,7 @@ export type MetricKey = "decision" | "lowUsage" | "autoRenew" | "cancelBy30" | "
 
 export type RenewalMetric = {
   key: MetricKey;
-  icon: string;
+  icon: RemixiconComponentType;
   label: string;
   value: string;
   detail: string;
@@ -20,7 +27,7 @@ const plural = (count: number, word: string) => `${count} ${word}${count === 1 ?
 
 type MetricDef = {
   key: MetricKey;
-  icon: string;
+  icon: RemixiconComponentType;
   label: string;
   isDollar: boolean;
   match: (entry: AssessedEntry) => boolean;
@@ -33,7 +40,7 @@ type MetricDef = {
 const metricDefs: MetricDef[] = [
   {
     key: "decision",
-    icon: iconPath("metric-dollar"),
+    icon: RiMoneyDollarCircleLine,
     label: "Total exposure at risk",
     isDollar: true,
     match: (entry) => !entry.resolved,
@@ -41,7 +48,7 @@ const metricDefs: MetricDef[] = [
   },
   {
     key: "lowUsage",
-    icon: iconPath("metric-bank"),
+    icon: RiBankLine,
     label: "Renewals under 80% usage",
     isDollar: true,
     match: (entry) => (parseInt(entry.row.usage, 10) || 0) < 80,
@@ -49,7 +56,7 @@ const metricDefs: MetricDef[] = [
   },
   {
     key: "autoRenew",
-    icon: iconPath("metric-timer"),
+    icon: RiTimerLine,
     label: "Renewing automatically",
     isDollar: false,
     match: (entry) => entry.row.contractType === "Auto-renew" && !entry.resolved,
@@ -57,7 +64,7 @@ const metricDefs: MetricDef[] = [
   },
   {
     key: "cancelBy30",
-    icon: iconPath("metric-alert"),
+    icon: RiAlarmWarningLine,
     label: "Cancel-by within 30 days",
     isDollar: false,
     match: (entry) => entry.row.daysToCancelBy <= 30,
@@ -65,7 +72,7 @@ const metricDefs: MetricDef[] = [
   },
   {
     key: "missingOwner",
-    icon: iconPath("metric-users"),
+    icon: RiUserUnfollowLine,
     label: "Missing owners",
     isDollar: false,
     match: (entry) => entry.row.owner === null,

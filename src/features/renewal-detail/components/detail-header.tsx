@@ -1,4 +1,5 @@
 import { Avatar, Text, clx } from "@medusajs/ui";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 
@@ -27,9 +28,13 @@ export function DetailHeader({
   return (
     <div className="flex w-full flex-col gap-6 p-4 pb-0">
       <div className="flex items-center gap-1 text-[14px] leading-5 tracking-[-0.07px] text-ui-fg-subtle">
-        <Text as="span">Applications</Text>
+        <Link href="/" className="hover:text-ui-fg-base hover:underline">
+          Applications
+        </Link>
         <Text as="span">/</Text>
-        <Text as="span">{detail.vendor}</Text>
+        <Text as="span" className="text-ui-fg-base">
+          {detail.vendor}
+        </Text>
       </div>
       <div className="flex w-full items-center justify-between">
         <div className="flex items-center gap-3">

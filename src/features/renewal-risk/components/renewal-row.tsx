@@ -4,28 +4,14 @@ import { Avatar, StatusBadge, Table, Text } from "@medusajs/ui";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { isDecisionClosed, useRenewalRuntime } from "@/lib/renewal-runtime-state";
+import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
 import { toVendorSlug } from "@/lib/vendor-slug";
 
-import type { BadgeColor, Renewal, Risk } from "../types";
+import { resolveRenewalDisplay } from "../resolve-display";
+import type { Renewal, Risk } from "../types";
 
 import { RiskBadge } from "./risk-badge";
 import { StackedCellText } from "./stacked-cell-text";
-
-// Shown once a decision has actually closed the risk out — nothing more to do.
-const closedDecisionDisplay: Record<string, { status: string; statusTone: BadgeColor }> = {
-  Renew: { status: "Renewed", statusTone: "green" },
-  "Right-size": { status: "Right-sized", statusTone: "green" },
-};
-
-// Shown when a decision is recorded but still needs real-world follow-through
-// (vendor confirmation, finance review, finalized terms) — distinct wording
-// so the queue never claims work is done when it isn't.
-const pendingDecisionDisplay: Record<string, { status: string; statusTone: BadgeColor }> = {
-  "Right-size": { status: "Negotiation in progress", statusTone: "blue" },
-  Cancel: { status: "Cancellation pending", statusTone: "orange" },
-  Escalate: { status: "Escalated — awaiting finance", statusTone: "blue" },
-};
 
 // A left accent on rows that actually need attention, so the eye can triage
 // the queue without reading every risk badge one by one.
@@ -49,44 +35,8 @@ type RenewalRowProps = {
 export function RenewalRow({ row: baseRow }: RenewalRowProps) {
   const { resolutions } = useRenewalRuntime();
   const resolution = resolutions[toVendorSlug(baseRow.vendor)];
-
-  const finalDecision = resolution?.decision && !resolution.decision.draft ? resolution.decision : undefined;
-  const closed = finalDecision ? isDecisionClosed(finalDecision) : false;
-
-  let row = baseRow;
-  if (finalDecision && closed) {
-    const mapped = closedDecisionDisplay[finalDecision.action];
-    row = { ...row, ...mapped, action: "View" };
-  } else if (finalDecision) {
-    const mapped = pendingDecisionDisplay[finalDecision.action];
-    row = { ...row, ...mapped, action: "View" };
-  } else if (resolution?.ownerAssigned && row.status === "Assign owner") {
-    row = { ...row, status: "In review", statusTone: "blue" };
-  }
-
-  const slug = toVendorSlug(row.vendor);
+  const { row, slug, statusLabel, statusTone, action, isUrgent } = resolveRenewalDisplay(baseRow, resolution);
   const usagePercent = parseInt(row.usage, 10) || 0;
-
-  // Escalation state overrides the status badge instead of stacking a
-  // contradicting caption under it (e.g. a green "On track" badge next to a
-  // red "Needs your decision" line) — and distinguishes "owner still has it"
-  // from "nobody's accountable, it's on admin now". It only clears once a
-  // decision has actually closed the risk — a pending decision (cancellation
-  // requested, negotiation open, escalated to finance) hasn't resolved
-  // anything, so urgency/ownerless signals still apply.
-  const escalationState = closed ? "none" : row.escalationState;
-  const statusLabel =
-    escalationState === "needsDecision"
-      ? "Needs your decision"
-      : escalationState === "waitingOnOwner"
-        ? `Waiting on ${row.owner}`
-        : row.status;
-  const statusTone: BadgeColor =
-    escalationState === "needsDecision" ? "red" : escalationState === "waitingOnOwner" ? "orange" : row.statusTone;
-
-  // Button weight tracks urgency, not just which verb the action happens to be —
-  // an unowned High-risk row should read as urgent even if its action is "Assign".
-  const isUrgent = row.risk === "Critical" || row.risk === "High";
 
   return (
     <Table.Row
@@ -99,7 +49,7 @@ export function RenewalRow({ row: baseRow }: RenewalRowProps) {
             src={row.logo}
             fallback={row.vendor.slice(0, 2).toUpperCase()}
             variant="squared"
-            size="base"
+            size="large"
           />
           <StackedCellText primary={row.vendor} secondary={row.subtitle} />
         </div>
@@ -141,7 +91,7 @@ export function RenewalRow({ row: baseRow }: RenewalRowProps) {
           >
             {row.usage}
           </Text>
-          <div className="h-2 w-28 overflow-hidden rounded-[1px] bg-ui-bg-subtle-hover shadow-borders-base">
+          <div className="h-2 w-28 overflow-hidden rounded-[2px] border-[0.5px] border-ui-border-strong bg-ui-tag-neutral-bg">
             <div
               className="h-full"
               style={{ width: `${usagePercent}%`, backgroundColor: usageBarColor(usagePercent) }}
@@ -156,7 +106,7 @@ export function RenewalRow({ row: baseRow }: RenewalRowProps) {
       </Table.Cell>
       <Table.Cell>
         <Button asChild variant={isUrgent ? "primary" : "secondary"} size="base">
-          <Link href={`/renewals/${slug}`}>{row.action}</Link>
+          <Link href={`/renewals/${slug}`}>{action}</Link>
         </Button>
       </Table.Cell>
     </Table.Row>

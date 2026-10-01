@@ -1,8 +1,15 @@
-import { iconPath } from "@/lib/assets";
+import {
+  RiDashboardLine,
+  RiHistoryLine,
+  RiSettings3Line,
+  RiStackLine,
+  RiTeamLine,
+  type RemixiconComponentType,
+} from "@remixicon/react";
 
 export type NavItem = {
   label: string;
-  icon: string;
+  icon: RemixiconComponentType;
   /** Route this item links to. Items without one render inert (no page exists yet). */
   href?: string;
   count?: number;
@@ -11,11 +18,11 @@ export type NavItem = {
 export const navItems: NavItem[] = [
   {
     label: "Renewal Risk",
-    icon: iconPath("nav-renewal"),
+    icon: RiDashboardLine,
     href: "/",
   },
-  { label: "Subscriptions", icon: iconPath("nav-subscriptions") },
-  { label: "Owners", icon: iconPath("nav-owners") },
-  { label: "Activity", icon: iconPath("nav-activity") },
-  { label: "Settings", icon: iconPath("nav-settings"), href: "/settings" },
+  { label: "Subscriptions", icon: RiStackLine },
+  { label: "Owners", icon: RiTeamLine },
+  { label: "Activity", icon: RiHistoryLine },
+  { label: "Settings", icon: RiSettings3Line, href: "/settings" },
 ];

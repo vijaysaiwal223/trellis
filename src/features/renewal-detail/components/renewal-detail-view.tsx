@@ -1,13 +1,14 @@
 "use client";
 
-import { Text } from "@medusajs/ui";
-import { useMemo, useState } from "react";
+import { clx, Text } from "@medusajs/ui";
+import { useCallback, useMemo, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
+import { useAiAssistant } from "@/components/layout/ai-assistant-state";
 import { renewals, useAssessedRenewals } from "@/features/renewal-risk";
 import { isDecisionClosed, useRenewalRuntime } from "@/lib/renewal-runtime-state";
 
-import { AiSuggestionCard } from "./ai-suggestion-card";
+import { AiInsight } from "./ai-insight";
 import { AssignOwnerModal } from "./assign-owner-modal";
 import { DetailHeader } from "./detail-header";
 import { DetailListCard } from "./detail-list-card";
@@ -15,13 +16,21 @@ import { PaymentHistoryChart } from "./payment-history-chart";
 import { RecommendationCard } from "./recommendation-card";
 import { RenewalTimeline } from "./renewal-timeline";
 import { SeatUtilizationChart } from "./seat-utilization-chart";
+import { UsageTrendChart } from "./usage-trend-chart";
 import type { DetailTab } from "../constants";
 import type { RenewalDetail } from "../types";
+import { buildAiSuggestionFacts, type AiSuggestion } from "../ai-suggestion";
 
 export function RenewalDetailView({ detail }: { detail: RenewalDetail }) {
   const [activeTab, setActiveTab] = useState<DetailTab>("Overview");
-  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewOpenLocal, setReviewOpenLocal] = useState(false);
   const [assignOwnerOpen, setAssignOwnerOpen] = useState(false);
+  const { isOpen: aiOpen, suggestions, setSuggestion, reviewRequest, clearReviewRequest } = useAiAssistant();
+  const reviewOpen = reviewOpenLocal || reviewRequest === detail.slug;
+  const closeReview = () => {
+    setReviewOpenLocal(false);
+    clearReviewRequest();
+  };
   const { resolutions, assignOwner, confirmDecision, departedOwners } = useRenewalRuntime();
   const resolution = resolutions[detail.slug];
   const decision = resolution?.decision && !resolution.decision.draft ? resolution.decision : null;
@@ -79,14 +88,27 @@ export function RenewalDetailView({ detail }: { detail: RenewalDetail }) {
   }, [decision, detail, isPastCancelBy]);
 
   const currentOwnerName = resolution?.ownerAssigned ?? (ownerDeparted ? undefined : currentOwner);
+  const aiFacts = useMemo(
+    () => buildAiSuggestionFacts(detail, assessedRow, currentOwnerName, ownerDeparted),
+    [detail, assessedRow, currentOwnerName, ownerDeparted],
+  );
+  const insightKey = JSON.stringify(aiFacts);
+  const currentAiSuggestion = suggestions[detail.slug]?.key === insightKey ? suggestions[detail.slug].value : null;
+  const handleAiSuggestion = useCallback((value: AiSuggestion | null) => {
+    setSuggestion(detail.slug, insightKey, value);
+  }, [detail.slug, insightKey, setSuggestion]);
 
   return (
-    <div className="flex h-full w-full flex-col">
+    <div className="relative flex h-full min-h-0 w-full">
+      <div className={clx(
+        "flex min-w-0 flex-1 flex-col overflow-y-auto rounded-[12px] border border-ui-border-base bg-ui-bg-base",
+        aiOpen && "2xl:rounded-r-none",
+      )}>
       <DetailHeader
         detail={detail}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        onReviewRenewal={() => setReviewOpen(true)}
+        onReviewRenewal={() => setReviewOpenLocal(true)}
         hasActiveOwner={!!currentOwnerName}
         onOpenAssignOwner={() => setAssignOwnerOpen(true)}
       />
@@ -105,17 +127,26 @@ export function RenewalDetailView({ detail }: { detail: RenewalDetail }) {
               </div>
             </Alert>
 
-            <AiSuggestionCard text={detail.recommendation.description} />
+            <AiInsight
+              key={insightKey}
+              fallbackText={detail.recommendation.description}
+              facts={aiFacts}
+              onSuggestion={handleAiSuggestion}
+            />
+
+            <RenewalTimeline detail={detail} />
 
             <SeatUtilizationChart detail={detail} />
 
-            <div className="flex w-full items-start gap-4">
+            <div className="flex w-full items-stretch gap-4">
               <div className="min-w-0 flex-1">
                 <PaymentHistoryChart detail={detail} />
               </div>
-              <div className="min-w-0 flex-1">
-                <RenewalTimeline detail={detail} />
-              </div>
+              {detail.usageTrend.length > 0 ? (
+                <div className="min-w-0 flex-1">
+                  <UsageTrendChart detail={detail} />
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -129,7 +160,7 @@ export function RenewalDetailView({ detail }: { detail: RenewalDetail }) {
       {reviewOpen ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-ui-fg-base/30 p-4"
-          onClick={() => setReviewOpen(false)}
+          onClick={closeReview}
         >
           <div className="w-full max-w-[560px]" onClick={(event) => event.stopPropagation()}>
             <RecommendationCard
@@ -139,8 +170,10 @@ export function RenewalDetailView({ detail }: { detail: RenewalDetail }) {
               currentOwnerName={currentOwnerName}
               onAssignOwner={(name) => assignOwner(detail.slug, name)}
               onSave={(record) => confirmDecision(detail.slug, record)}
-              onClose={() => setReviewOpen(false)}
+              onClose={closeReview}
               isPastCancelBy={isPastCancelBy}
+              suggestedAction={currentAiSuggestion?.action}
+              suggestedReasoning={currentAiSuggestion?.reasoning}
             />
           </div>
         </div>
@@ -186,6 +219,8 @@ export function RenewalDetailView({ detail }: { detail: RenewalDetail }) {
           </Alert>
         </div>
       ) : null}
+      </div>
+
     </div>
   );
 }

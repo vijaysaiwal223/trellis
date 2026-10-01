@@ -7,7 +7,7 @@ export type ButtonSize = "small" | "base" | "xlarge";
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary: clx(
-    "bg-ui-button-inverted !text-white shadow-buttons-inverted",
+    "bg-ui-button-inverted !text-white [&_svg]:!text-white shadow-buttons-inverted",
     "hover:bg-ui-button-inverted-hover active:bg-ui-button-inverted-pressed",
     "focus-visible:shadow-buttons-inverted-focus",
   ),

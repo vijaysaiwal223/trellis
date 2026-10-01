@@ -55,6 +55,14 @@ export const renewalDetails: Record<string, RenewalDetail> = {
       { period: "Last year", amount: 148000 },
       { period: "This year", amount: 180000 },
     ],
+    usageTrend: [
+      { month: "Apr", purchasedSeats: 420, activeSeats: 275 },
+      { month: "May", purchasedSeats: 420, activeSeats: 268 },
+      { month: "Jun", purchasedSeats: 420, activeSeats: 272 },
+      { month: "Jul", purchasedSeats: 420, activeSeats: 261 },
+      { month: "Aug", purchasedSeats: 420, activeSeats: 266 },
+      { month: "Sep", purchasedSeats: 420, activeSeats: 269 },
+    ],
     usageEntitlement: [
       { label: "Purchase seats", value: "420" },
       { label: "Active seats", value: "269" },
@@ -116,6 +124,14 @@ export const renewalDetails: Record<string, RenewalDetail> = {
       { period: "2 years ago", amount: 88000 },
       { period: "Last year", amount: 92000 },
       { period: "This year", amount: 96000 },
+    ],
+    usageTrend: [
+      { month: "Apr", purchasedSeats: 60, activeSeats: 47 },
+      { month: "May", purchasedSeats: 60, activeSeats: 49 },
+      { month: "Jun", purchasedSeats: 60, activeSeats: 48 },
+      { month: "Jul", purchasedSeats: 60, activeSeats: 52 },
+      { month: "Aug", purchasedSeats: 60, activeSeats: 50 },
+      { month: "Sep", purchasedSeats: 60, activeSeats: 51 },
     ],
     usageEntitlement: [
       { label: "Purchase seats", value: "60" },
@@ -179,6 +195,14 @@ export const renewalDetails: Record<string, RenewalDetail> = {
       { period: "Last year", amount: 95000 },
       { period: "This year", amount: 96000 },
     ],
+    usageTrend: [
+      { month: "Apr", purchasedSeats: 40, activeSeats: 26 },
+      { month: "May", purchasedSeats: 40, activeSeats: 27 },
+      { month: "Jun", purchasedSeats: 40, activeSeats: 29 },
+      { month: "Jul", purchasedSeats: 40, activeSeats: 28 },
+      { month: "Aug", purchasedSeats: 40, activeSeats: 30 },
+      { month: "Sep", purchasedSeats: 40, activeSeats: 31 },
+    ],
     usageEntitlement: [
       { label: "Purchase seats", value: "40" },
       { label: "Active seats", value: "31" },
@@ -241,6 +265,14 @@ export const renewalDetails: Record<string, RenewalDetail> = {
       { period: "Last year", amount: 88000 },
       { period: "This year", amount: 96000 },
     ],
+    usageTrend: [
+      { month: "Apr", purchasedSeats: 25, activeSeats: 19 },
+      { month: "May", purchasedSeats: 25, activeSeats: 20 },
+      { month: "Jun", purchasedSeats: 25, activeSeats: 21 },
+      { month: "Jul", purchasedSeats: 25, activeSeats: 22 },
+      { month: "Aug", purchasedSeats: 25, activeSeats: 21 },
+      { month: "Sep", purchasedSeats: 25, activeSeats: 22 },
+    ],
     usageEntitlement: [
       { label: "Purchase seats", value: "25" },
       { label: "Active seats", value: "22" },
@@ -302,6 +334,14 @@ export const renewalDetails: Record<string, RenewalDetail> = {
       { period: "2 years ago", amount: 87000 },
       { period: "Last year", amount: 91000 },
       { period: "This year", amount: 96000 },
+    ],
+    usageTrend: [
+      { month: "Apr", purchasedSeats: 25, activeSeats: 20 },
+      { month: "May", purchasedSeats: 25, activeSeats: 21 },
+      { month: "Jun", purchasedSeats: 25, activeSeats: 22 },
+      { month: "Jul", purchasedSeats: 25, activeSeats: 24 },
+      { month: "Aug", purchasedSeats: 25, activeSeats: 22 },
+      { month: "Sep", purchasedSeats: 25, activeSeats: 23 },
     ],
     usageEntitlement: [
       { label: "Purchase seats", value: "25" },

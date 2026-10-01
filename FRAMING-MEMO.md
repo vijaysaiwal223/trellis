@@ -33,9 +33,12 @@ Reframe "Renewal Risk" from a table you *can* read into a queue you *must* clear
 - **Persona docs, journey-map artifacts, competitive teardown** — didn't earn a decision here; cut per the brief's own guidance.
 - **The AI assistant** — scoped as the stretch goal only (see below), not load-bearing for the core fix. The queue must work without it.
 
-## One added field
+## Two added fields (the brief's cap)
 
-Trellis's data model didn't include a way to route escalations, so I added **owner's team** (e.g. "Engineering") — the minimum needed to answer "who do we escalate to if this owner doesn't act." Everything else on screen (risk, cancel-by, timing, status) is derived from the given fields, not new data.
+- **Owner's team** (e.g. "Engineering") — the minimum needed to answer "who do we escalate to if this owner doesn't act."
+- **Monthly active-seat history** (6 months, behind the Overview tab's usage-trend chart) — the brief's data model already has "active seats" sourced from SSO logs; SSO activity is inherently a time series, not a single read, so a monthly history is a plausible extension of a field Trellis already has, not a new kind of data.
+
+Everything else on screen (risk, cancel-by, timing, status) is derived from the given fields, not new data.
 
 ## AI assistant (stretch)
 

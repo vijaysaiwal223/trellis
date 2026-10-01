@@ -1,5 +1,6 @@
 import { assetPath } from "@/lib/assets";
 
+import { importedRenewalSeeds } from "./imported-vendors";
 import type { RenewalSeed } from "./types";
 
 // Static fixtures until a real data source is wired up.
@@ -7,7 +8,7 @@ import type { RenewalSeed } from "./types";
 // Cancel-by dates, contract values, owners and usage are reconciled against
 // each vendor's full record in @/features/renewal-detail/mock-data ("today"
 // is Sep 26 there). Risk, timing and ranking are computed in ./assessment.
-export const renewals: RenewalSeed[] = [
+const curatedRenewals: RenewalSeed[] = [
   {
     vendor: "Salesforce",
     subtitle: "Project Management",
@@ -88,3 +89,9 @@ export const renewals: RenewalSeed[] = [
     action: "View",
   },
 ];
+
+// The 18 vendors from the Trellis Figma file's data table (node 68:9270),
+// appended to the 5 hand-tuned scenarios above rather than replacing them —
+// Figma's own Salesforce/Notion rows have different numbers than the
+// curated versions and were dropped to avoid a duplicate, conflicting entry.
+export const renewals: RenewalSeed[] = [...curatedRenewals, ...importedRenewalSeeds];

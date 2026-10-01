@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { avatarUrl, people } from "@/config/people";
-import { renewalDetails } from "@/features/renewal-detail";
+import { genericRenewalDetails, renewalDetails } from "@/features/renewal-detail";
 import { renewals, useAssessedRenewals } from "@/features/renewal-risk";
 import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
 
@@ -107,7 +107,7 @@ export function OwnershipTab({ notify }: { notify: (message: string) => void }) 
           <Table.Body className="[&_tr:last-child]:border-b-0">
             {visible.map(({ slug, row }) => {
               const status = statusDisplay[row.ownerStatus];
-              const suggested = renewalDetails[slug]?.ownerOptions.find((name) =>
+              const suggested = (renewalDetails[slug] ?? genericRenewalDetails[slug])?.ownerOptions.find((name) =>
                 available.some((person) => person.name === name),
               );
               return (

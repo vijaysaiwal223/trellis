@@ -3,10 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Text, clx } from "@medusajs/ui";
+import { RiArrowDownSLine } from "@remixicon/react";
 import { useEffect, useRef, useState } from "react";
-
-import { AssetIcon } from "@/components/ui/asset-icon";
-import { iconPath } from "@/lib/assets";
 
 const VIJAY_AVATAR = "/assets/vijay-saiwal.jpg";
 
@@ -55,7 +53,7 @@ export function AccountMenu() {
             Admin
           </Text>
         </div>
-        <AssetIcon src={iconPath("profile-chevron")} alt="" size={16} className="shrink-0 text-ui-fg-muted" />
+        <RiArrowDownSLine className="size-4 shrink-0 text-ui-fg-muted" />
       </button>
 
       {open ? (

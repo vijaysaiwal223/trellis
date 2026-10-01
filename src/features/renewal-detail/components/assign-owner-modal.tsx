@@ -1,6 +1,7 @@
 "use client";
 
 import { Avatar, Checkbox, Table, Text, clx } from "@medusajs/ui";
+import { RiCloseLine, RiMailLine, RiSearchLine } from "@remixicon/react";
 import { useMemo, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
@@ -72,9 +73,7 @@ export function AssignOwnerModal({
           onClick={onClose}
           className="flex size-7 shrink-0 items-center justify-center rounded-lg text-ui-fg-muted hover:bg-ui-bg-subtle-hover"
         >
-          <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-            <path d="m5 5 10 10M15 5 5 15" />
-          </svg>
+          <RiCloseLine className="size-4" />
         </button>
       </div>
 
@@ -92,12 +91,7 @@ export function AssignOwnerModal({
         ) : null}
 
         <div className="flex items-center gap-2 rounded-[8px] border border-ui-border-base bg-ui-bg-base px-3 py-2">
-          <Text as="span" className="text-ui-fg-muted">
-            <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <circle cx="9" cy="9" r="6" />
-              <path d="m17 17-3.5-3.5" strokeLinecap="round" />
-            </svg>
-          </Text>
+          <RiSearchLine className="size-4 shrink-0 text-ui-fg-muted" />
           <input
             type="text"
             value={query}
@@ -189,9 +183,7 @@ export function AssignOwnerModal({
 
         {notify ? (
           <div className="flex items-start gap-2 rounded-[8px] border border-ui-border-base bg-ui-bg-subtle p-3">
-            <Text as="span" className="text-ui-fg-interactive">
-              ✉
-            </Text>
+            <RiMailLine className="size-4 shrink-0 text-ui-fg-interactive" />
             <div className="flex flex-col gap-0.5">
               <Text as="span" className="text-[12px] font-medium uppercase tracking-wide text-ui-fg-muted">
                 Notification preview

@@ -1,11 +1,8 @@
 "use client";
 
 import { IconButton, Input } from "@medusajs/ui";
-import { X } from "lucide-react";
+import { RiCloseLine, RiSearchLine } from "@remixicon/react";
 import { useState } from "react";
-
-import { AssetIcon } from "@/components/ui/asset-icon";
-import { iconPath } from "@/lib/assets";
 
 export function HeaderSearch() {
   const [search, setSearch] = useState("");
@@ -13,11 +10,7 @@ export function HeaderSearch() {
 
   return (
     <div className="relative h-8 w-[260px]">
-      <AssetIcon
-        src={iconPath("search")}
-        alt=""
-        className="pointer-events-none absolute left-2 top-1/2 z-10 -translate-y-1/2"
-      />
+      <RiSearchLine className="pointer-events-none absolute left-2 top-1/2 z-10 size-4 -translate-y-1/2 text-ui-fg-muted" />
       <Input
         type="text"
         value={search}
@@ -35,7 +28,7 @@ export function HeaderSearch() {
           onClick={() => setSearch("")}
           className="!absolute right-1 top-1/2 !flex !h-6 !w-6 -translate-y-1/2 !items-center !justify-center rounded-full !bg-transparent !text-ui-fg-muted !shadow-none hover:!bg-ui-border-base after:hidden"
         >
-          <X className="h-3.5 w-3.5" />
+          <RiCloseLine className="size-3.5" />
         </IconButton>
       ) : null}
     </div>
