@@ -2,12 +2,13 @@
 
 import { Avatar, Checkbox, Table, Text, clx } from "@medusajs/ui";
 import { RiCloseLine, RiMailLine, RiSearchLine } from "@remixicon/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { avatarUrl, people } from "@/config/people";
+import { avatarUrl } from "@/config/people";
 
+import { localOwnerRecommendation, type OwnerRecommendation, type OwnerRecommendationRequest } from "../owner-recommendation";
 import type { RenewalDetail } from "../types";
 
 function initials(name: string) {
@@ -22,7 +23,7 @@ type AssignOwnerModalProps = {
   detail: RenewalDetail;
   previousOwnerName?: string;
   previousOwnerDeparted: boolean;
-  suggestedOwner?: string;
+  recommendationFacts: OwnerRecommendationRequest;
   isPastCancelBy: boolean;
   onAssign: (name: string) => void;
   onClose: () => void;
@@ -32,39 +33,81 @@ export function AssignOwnerModal({
   detail,
   previousOwnerName,
   previousOwnerDeparted,
-  suggestedOwner,
+  recommendationFacts,
   isPastCancelBy,
   onAssign,
   onClose,
 }: AssignOwnerModalProps) {
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState(suggestedOwner ?? people[0].name);
-  const [notify, setNotify] = useState(true);
+  const fallback = useMemo(() => localOwnerRecommendation(recommendationFacts), [recommendationFacts]);
+  const [recommendation, setRecommendation] = useState<OwnerRecommendation>(fallback);
+  const [source, setSource] = useState<"loading" | "ai" | "local">("loading");
+  const [selected, setSelected] = useState(fallback.name);
+  const [showPreview, setShowPreview] = useState(false);
+  const changedSelection = useRef(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/owner-recommendation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(recommendationFacts),
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Recommendation unavailable");
+        return response.json() as Promise<OwnerRecommendation>;
+      })
+      .then((answer) => {
+        if (!recommendationFacts.candidates.some((candidate) => candidate.name === answer.name)) {
+          throw new Error("Invalid owner recommendation");
+        }
+        setRecommendation(answer);
+        setSource("ai");
+        if (!changedSelection.current) setSelected(answer.name);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setSource("local");
+      });
+    return () => controller.abort();
+  }, [recommendationFacts]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
 
   const annualContract = detail.contactDetails.find((row) => row.label === "Annual contract")?.value;
   const cancelBy = detail.timeline.find((point) => point.label === "Cancel-by")?.date;
 
   const filtered = useMemo(() => {
-    // Recommended candidate always leads the list, even mid-search.
-    const sorted = [...people].sort((a, b) =>
-      a.name === suggestedOwner ? -1 : b.name === suggestedOwner ? 1 : 0,
+    const sorted = [...recommendationFacts.candidates].sort((a, b) =>
+      a.name === recommendation.name ? -1 : b.name === recommendation.name ? 1 : 0,
     );
     const q = query.trim().toLowerCase();
     if (!q) return sorted;
     return sorted.filter(
       (person) => person.name.toLowerCase().includes(q) || person.team.toLowerCase().includes(q),
     );
-  }, [query, suggestedOwner]);
+  }, [query, recommendation.name, recommendationFacts.candidates]);
+
+  const selectOwner = (name: string) => {
+    changedSelection.current = true;
+    setSelected(name);
+  };
 
   return (
-    <div className="flex max-h-[85vh] w-full max-w-[600px] flex-col overflow-hidden rounded-2xl border border-ui-border-base bg-ui-bg-base shadow-elevation-flyout">
+    <div role="dialog" aria-modal="true" aria-labelledby="assign-owner-title" className="flex max-h-[92vh] w-full max-w-[600px] flex-col overflow-hidden rounded-2xl border border-ui-border-base bg-ui-bg-base shadow-elevation-flyout">
       <div className="flex items-start justify-between gap-3 border-b border-ui-border-base px-4 py-3">
         <div className="flex flex-col">
-          <Text as="span" className="text-[16px] font-medium leading-6 text-ui-fg-base">
+          <Text as="span" id="assign-owner-title" className="text-[16px] font-medium leading-6 text-ui-fg-base">
             Assign owner for {detail.vendor}
           </Text>
           <Text as="span" className="text-[12px] leading-4 text-ui-fg-subtle">
-            {detail.vendor} · {detail.subtitle}
+            {detail.subtitle} renewal
           </Text>
         </div>
         <button
@@ -77,7 +120,7 @@ export function AssignOwnerModal({
         </button>
       </div>
 
-      <div className="flex w-full flex-col gap-4 overflow-y-auto p-4">
+      <div className="flex min-h-0 w-full flex-col gap-4 overflow-y-auto p-4">
         {previousOwnerName ? (
           <Alert
             tone={previousOwnerDeparted ? "danger" : "neutral"}
@@ -90,18 +133,46 @@ export function AssignOwnerModal({
           />
         ) : null}
 
-        <div className="flex items-center gap-2 rounded-[8px] border border-ui-border-base bg-ui-bg-base px-3 py-2">
+        <div className="shrink-0 rounded-[10px] border border-[#bfd5ff] bg-ui-bg-interactive-soft p-3" aria-live="polite">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <Text as="p" className="text-[12px] font-semibold text-ui-fg-interactive">
+                {source === "loading" ? "Bruno is reviewing owner fit…" : source === "ai" ? "Bruno suggests" : "Suggested from Trellis data"}
+              </Text>
+              <div className="mt-2 flex items-center gap-2">
+                <Avatar src={avatarUrl(recommendation.name)} fallback={initials(recommendation.name)} variant="rounded" size="small" />
+                <Text as="p" className="text-[14px] font-semibold text-ui-fg-base">
+                  {recommendation.name}
+                  <span className="font-normal text-ui-fg-subtle"> · {recommendationFacts.candidates.find((person) => person.name === recommendation.name)?.team}</span>
+                </Text>
+              </div>
+              <Text as="p" className="mt-2 text-[13px] leading-5 text-ui-fg-subtle">{recommendation.reason}</Text>
+            </div>
+            {selected !== recommendation.name ? (
+              <Button variant="secondary" size="small" onClick={() => selectOwner(recommendation.name)}>
+                Select
+              </Button>
+            ) : null}
+          </div>
+          <Text as="p" className="mt-2 text-[12px] leading-4 text-ui-fg-muted">
+            Based on team and renewals in Trellis. Confirm availability and vendor context before assigning.
+          </Text>
+        </div>
+
+        <label className="flex items-center gap-2 rounded-[8px] border border-ui-border-base bg-ui-bg-base px-3 py-2">
           <RiSearchLine className="size-4 shrink-0 text-ui-fg-muted" />
+          <span className="sr-only">Search people or teams</span>
           <input
             type="text"
+            autoFocus
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search people or teams..."
             className="w-full bg-transparent text-[14px] text-ui-fg-base outline-none placeholder:text-ui-fg-muted"
           />
-        </div>
+        </label>
 
-        <div className="overflow-hidden rounded-[8px] border border-ui-border-base">
+        <div className="max-h-[230px] shrink-0 overflow-y-auto rounded-[8px] border border-ui-border-base">
           <Table>
             <Table.Header>
               <Table.Row className="!bg-ui-bg-subtle-hover hover:!bg-ui-bg-subtle-hover [&_th]:h-9 [&_th]:!px-3">
@@ -114,25 +185,26 @@ export function AssignOwnerModal({
             <Table.Body className="[&_tr:last-child]:border-b-0">
               {filtered.map((person) => {
                 const isSelected = selected === person.name;
-                const isRecommended = person.name === suggestedOwner;
+                const isRecommended = person.name === recommendation.name;
                 return (
                   <Table.Row
                     key={person.name}
-                    onClick={() => setSelected(person.name)}
+                    onClick={() => selectOwner(person.name)}
                     className={clx(
                       "cursor-pointer [&_td]:h-14 [&_td]:!px-3",
                       isSelected && "!bg-ui-bg-interactive-soft hover:!bg-ui-bg-interactive-soft",
                     )}
                   >
                     <Table.Cell>
-                      <span
-                        className={clx(
-                          "flex size-4 shrink-0 items-center justify-center rounded-full border-2",
-                          isSelected ? "border-ui-bg-interactive" : "border-ui-border-strong",
-                        )}
-                      >
-                        {isSelected ? <span className="size-2 rounded-full bg-ui-bg-interactive" /> : null}
-                      </span>
+                      <input
+                        type="radio"
+                        name="renewal-owner"
+                        value={person.name}
+                        checked={isSelected}
+                        onChange={() => selectOwner(person.name)}
+                        aria-label={`Assign ${person.name} from ${person.team}`}
+                        className="size-4 accent-[#2e77f8]"
+                      />
                     </Table.Cell>
                     <Table.Cell>
                       <div className="flex items-center gap-2">
@@ -155,7 +227,7 @@ export function AssignOwnerModal({
                     <Table.Cell>
                       {isRecommended ? (
                         <span className="rounded-full bg-ui-bg-interactive-soft px-2 py-1 text-[12px] font-medium text-ui-fg-interactive">
-                          Recommended
+                          Suggested
                         </span>
                       ) : null}
                     </Table.Cell>
@@ -172,21 +244,21 @@ export function AssignOwnerModal({
         </div>
 
         <label className="flex items-center gap-2">
-          <Checkbox checked={notify} onCheckedChange={(checked) => setNotify(checked === true)} />
+          <Checkbox checked={showPreview} onCheckedChange={(checked) => setShowPreview(checked === true)} />
           <Text as="span" className="text-[14px] font-medium leading-5 text-ui-fg-base">
-            Send notification
+            Show email preview
           </Text>
         </label>
         <Text as="p" className="-mt-3 text-[12px] leading-4 text-ui-fg-subtle">
-          The owner will be notified by email about this assignment.
+          Email delivery is not connected yet. Assigning an owner updates Trellis only.
         </Text>
 
-        {notify ? (
+        {showPreview ? (
           <div className="flex items-start gap-2 rounded-[8px] border border-ui-border-base bg-ui-bg-subtle p-3">
             <RiMailLine className="size-4 shrink-0 text-ui-fg-interactive" />
             <div className="flex flex-col gap-0.5">
               <Text as="span" className="text-[12px] font-medium uppercase tracking-wide text-ui-fg-muted">
-                Notification preview
+                Email draft preview
               </Text>
               <Text as="span" className="text-[14px] leading-5 text-ui-fg-base">
                 Hi {selected.split(" ")[0]}, you&apos;ve been assigned as the owner for the {detail.vendor} renewal
@@ -214,7 +286,7 @@ export function AssignOwnerModal({
             onClose();
           }}
         >
-          {notify ? "Assign and notify" : "Assign owner"}
+          Assign owner
         </Button>
       </div>
     </div>

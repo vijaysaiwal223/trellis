@@ -7,6 +7,7 @@ import {
   type RemixiconComponentType,
 } from "@remixicon/react";
 
+import { formatTotals, sumByCurrency } from "./money";
 import type { Renewal } from "./types";
 
 export type MetricKey = "decision" | "lowUsage" | "autoRenew" | "cancelBy30" | "missingOwner";
@@ -22,7 +23,6 @@ export type RenewalMetric = {
 
 type AssessedEntry = { row: Renewal; resolved: boolean };
 
-const formatCompactCurrency = (amount: number) => `$${Math.round(amount / 1000)}k`;
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
 type MetricDef = {
@@ -41,10 +41,10 @@ const metricDefs: MetricDef[] = [
   {
     key: "decision",
     icon: RiMoneyDollarCircleLine,
-    label: "Total exposure at risk",
+    label: "Open contract value",
     isDollar: true,
     match: (entry) => !entry.resolved,
-    detail: (count) => `${plural(count, "renewal")} need a decision`,
+    detail: (count) => `${plural(count, "renewal")} still open`,
   },
   {
     key: "lowUsage",
@@ -67,7 +67,7 @@ const metricDefs: MetricDef[] = [
     icon: RiAlarmWarningLine,
     label: "Cancel-by within 30 days",
     isDollar: false,
-    match: (entry) => entry.row.daysToCancelBy <= 30,
+    match: (entry) => entry.row.daysToCancelBy >= 0 && entry.row.daysToCancelBy <= 30 && !entry.resolved,
     detail: (count) => `${plural(count, "cancel-by date")} in next 30 days`,
   },
   {
@@ -89,7 +89,8 @@ export function deriveMetrics(assessed: AssessedEntry[]): RenewalMetric[] {
     const matches = assessed.filter(def.match);
     const count = matches.length;
     const value = def.isDollar
-      ? formatCompactCurrency(matches.reduce((sum, entry) => sum + entry.row.contractValue, 0))
+      ? // Never summed across currencies: a mixed portfolio shows one subtotal per currency.
+        formatTotals(sumByCurrency(matches.map((entry) => ({ amount: entry.row.contractValue, currency: entry.row.currency }))))
       : String(count);
     return { key: def.key, icon: def.icon, label: def.label, value, detail: def.detail(count), count };
   });

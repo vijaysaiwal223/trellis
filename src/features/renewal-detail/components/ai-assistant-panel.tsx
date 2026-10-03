@@ -206,12 +206,24 @@ export function AiAssistantPanel({
 
       <div ref={transcriptRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5" aria-live="polite">
         {exchanges.length === 0 ? (
-          <div className="space-y-4">
-            <div className="rounded-xl border border-ui-border-base bg-ui-bg-subtle px-3 py-3">
-              <Text as="p" className="text-[14px] font-medium leading-5 text-ui-fg-base">
+          <div className="flex min-h-full flex-col items-center justify-center gap-4 px-2 py-6 text-center">
+            <div className="flex size-24 shrink-0 items-center justify-center" aria-hidden="true">
+              <BotAvatar
+                type="blob"
+                state="default"
+                size={96}
+                color="#2876f5"
+                ink="#ffffff"
+                theme="light"
+                interactive={false}
+                aria-hidden="true"
+              />
+            </div>
+            <div className="flex max-w-[320px] flex-col items-center gap-2">
+              <Text as="p" className="text-[16px] font-medium leading-5 text-ui-fg-base">
                 {context.kind === "vendor" ? "Review this renewal with Bruno" : "Review your renewals with Bruno"}
               </Text>
-              <Text as="p" className="mt-1 text-[12px] leading-4 text-ui-fg-subtle">
+              <Text as="p" className="text-[14px] leading-5 text-ui-fg-subtle">
                 {context.kind === "vendor"
                   ? "Answers use the contract, usage, deadline, risk, and ownership data shown here. You make the final decision."
                   : "Ask about risk, deadlines, ownership, and usage across your renewal portfolio. You make the final decision."}

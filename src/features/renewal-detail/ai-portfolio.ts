@@ -27,7 +27,8 @@ export function buildAiPortfolioFacts(
   details: Record<string, RenewalDetail>,
 ): AiPortfolioFacts {
   return {
-    renewals: entries.map(({ slug, row, resolved }) => ({
+    // Contracts with no usage data (e.g. imported from a CSV) are left out rather than reported as 0% usage.
+    renewals: entries.filter(({ row }) => Number.isFinite(Number.parseInt(row.usage, 10))).map(({ slug, row, resolved }) => ({
       vendor: row.vendor,
       category: row.subtitle,
       contractValue: row.contractValue,

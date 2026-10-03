@@ -10,6 +10,7 @@ import { matchesMetric, type MetricKey } from "../metrics";
 import { resolveRenewalDisplay } from "../resolve-display";
 import type { BadgeColor, RenewalSeed } from "../types";
 import { useAssessedRenewals } from "../use-assessed-renewals";
+import type { RenewalTaskLevel } from "../workflow";
 
 import { RiskBadge } from "./risk-badge";
 
@@ -22,15 +23,12 @@ const toneDot: Record<BadgeColor, string> = {
   purple: "bg-ui-tag-purple-icon",
 };
 
-// Columns are the same statusTone already computed for the table's badge —
-// a kanban board is just that same resolved state laid out by urgency
-// instead of by vendor, so the two views can never disagree with each other.
-const columns: { tone: BadgeColor; title: string }[] = [
-  { tone: "red", title: "Needs decision" },
-  { tone: "orange", title: "Waiting / unassigned" },
-  { tone: "blue", title: "In progress" },
-  { tone: "grey", title: "Monitor" },
-  { tone: "green", title: "On track" },
+const columns: { level: RenewalTaskLevel; tone: BadgeColor; title: string }[] = [
+  { level: "lead", tone: "red", title: "Lead attention" },
+  { level: "overdue", tone: "orange", title: "Overdue" },
+  { level: "soon", tone: "blue", title: "Due soon" },
+  { level: "upcoming", tone: "grey", title: "Upcoming" },
+  { level: "done", tone: "green", title: "Confirmed" },
 ];
 
 type RenewalKanbanBoardProps = {
@@ -45,15 +43,15 @@ export function RenewalKanbanBoard({ renewals, filterKey }: RenewalKanbanBoardPr
 
   const displays = scoped
     .map((entry) => resolveRenewalDisplay(entry.row, resolutions[entry.slug]))
-    .sort((a, b) => b.row.urgency - a.row.urgency);
+    .sort((a, b) => b.task.priority - a.task.priority);
 
   return (
     <div className="mt-6 flex w-full items-start gap-3 overflow-x-auto pb-2">
       {columns.map((column) => {
-        const cards = displays.filter((display) => display.statusTone === column.tone);
+        const cards = displays.filter((display) => display.task.level === column.level);
         return (
           <div
-            key={column.tone}
+            key={column.level}
             className="flex min-w-[260px] flex-1 flex-col gap-2 rounded-[12px] border border-ui-border-base bg-ui-bg-subtle p-2"
           >
             <div className="flex items-center gap-2 px-1 py-1">
@@ -72,7 +70,7 @@ export function RenewalKanbanBoard({ renewals, filterKey }: RenewalKanbanBoardPr
                   Nothing here.
                 </Text>
               ) : (
-                cards.map(({ row, slug, statusLabel, action, isUrgent }) => (
+                cards.map(({ row, slug, statusLabel, action, href, isUrgent, task }) => (
                   <div
                     key={slug}
                     className="flex flex-col gap-2 rounded-[8px] border border-ui-border-base bg-ui-bg-base p-3 "
@@ -121,8 +119,13 @@ export function RenewalKanbanBoard({ renewals, filterKey }: RenewalKanbanBoardPr
                       {statusLabel}
                     </Text>
 
+                    <div className="border-t border-ui-border-base pt-2">
+                      <Text as="p" className="text-[12px] font-medium leading-4 text-ui-fg-base">{task.title}</Text>
+                      <Text as="p" className="text-[12px] leading-4 text-ui-fg-subtle">{task.due}</Text>
+                    </div>
+
                     <Button asChild variant={isUrgent ? "primary" : "secondary"} size="small" className="w-full justify-center">
-                      <Link href={`/renewals/${slug}`}>{action}</Link>
+                      <Link href={href}>{action}</Link>
                     </Button>
                   </div>
                 ))

@@ -5,16 +5,18 @@ import type { RenewalSeed } from "./types";
 
 // Static fixtures until a real data source is wired up.
 
-// Cancel-by dates, contract values, owners and usage are reconciled against
-// each vendor's full record in @/features/renewal-detail/mock-data ("today"
-// is Sep 26 there). Risk, timing and ranking are computed in ./assessment.
+// Renewal dates, notice periods, contract values, owners and usage are
+// reconciled against each vendor's full record in @/features/renewal-detail/
+// mock-data ("today" is Sep 26 there). Cancel-by, decide-by, risk, timing and
+// ranking are all computed in ./assessment from these facts.
 const curatedRenewals: RenewalSeed[] = [
   {
     vendor: "Salesforce",
     subtitle: "Project Management",
     logo: assetPath("vendor-salesforce.png"),
-    cancelBy: "Sept 20",
-    daysToCancelBy: -6,
+    renewalDate: "2026-10-20",
+    noticePeriodDays: 30,
+    noticeSource: "manual",
     contractValue: 180_000,
     contractType: "Auto-renew",
     owner: null,
@@ -30,8 +32,9 @@ const curatedRenewals: RenewalSeed[] = [
     vendor: "Atlassian",
     subtitle: "Coding Agent",
     logo: assetPath("vendor-atlassian.png"),
-    cancelBy: "Nov 20",
-    daysToCancelBy: 55,
+    renewalDate: "2026-12-20",
+    noticePeriodDays: 30,
+    noticeSource: "manual",
     contractValue: 96_000,
     contractType: "Auto-renew",
     owner: "Rohan Mehta",
@@ -45,8 +48,9 @@ const curatedRenewals: RenewalSeed[] = [
     vendor: "Zapier",
     subtitle: "CRM",
     logo: assetPath("vendor-zapier.png"),
-    cancelBy: "Sept 28",
-    daysToCancelBy: 2,
+    renewalDate: "2026-10-28",
+    noticePeriodDays: 30,
+    noticeSource: "manual",
     contractValue: 96_000,
     contractType: "Manual",
     owner: null,
@@ -62,8 +66,10 @@ const curatedRenewals: RenewalSeed[] = [
     vendor: "Notion",
     subtitle: "Coding Agent",
     logo: assetPath("vendor-notion.png"),
-    cancelBy: "Nov 6",
-    daysToCancelBy: 41,
+    renewalDate: "2026-12-06",
+    noticePeriodDays: 30,
+    noticeSource: "manual",
+    termMonths: 1,
     contractValue: 96_000,
     contractType: "Month-to-month",
     owner: "Jasmine Patel",
@@ -77,8 +83,10 @@ const curatedRenewals: RenewalSeed[] = [
     vendor: "Vercel",
     subtitle: "Coding Agent",
     logo: assetPath("vendor-vercel.png"),
-    cancelBy: "Nov 6",
-    daysToCancelBy: 41,
+    renewalDate: "2026-12-06",
+    noticePeriodDays: 30,
+    noticeSource: "manual",
+    termMonths: 1,
     contractValue: 96_000,
     contractType: "Month-to-month",
     owner: "Marcus Webb",

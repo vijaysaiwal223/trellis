@@ -1,11 +1,10 @@
 "use client";
 
-import { Avatar, StatusBadge, Table, Text } from "@medusajs/ui";
+import { Avatar, Table, Text } from "@medusajs/ui";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
-import { toVendorSlug } from "@/lib/vendor-slug";
 
 import { resolveRenewalDisplay } from "../resolve-display";
 import type { Renewal, Risk } from "../types";
@@ -30,18 +29,20 @@ function usageBarColor(percent: number) {
 
 type RenewalRowProps = {
   row: Renewal;
+  /** Show the decide-by column (Renewal Decisions on). */
+  showDecideBy?: boolean;
 };
 
-export function RenewalRow({ row: baseRow }: RenewalRowProps) {
+export function RenewalRow({ row: baseRow, showDecideBy = false }: RenewalRowProps) {
   const { resolutions } = useRenewalRuntime();
-  const resolution = resolutions[toVendorSlug(baseRow.vendor)];
-  const { row, slug, statusLabel, statusTone, action, isUrgent } = resolveRenewalDisplay(baseRow, resolution);
+  const resolution = resolutions[baseRow.id];
+  const { row, action, href, isUrgent, task } = resolveRenewalDisplay(baseRow, resolution);
   const usagePercent = parseInt(row.usage, 10) || 0;
 
   return (
     <Table.Row
       className="[&_td]:h-16 [&_td]:!px-3 [&_td:first-child]:!pl-3 [&_td:last-child]:!pr-3"
-      style={{ borderLeft: `3px solid ${riskAccent[row.risk]}` }}
+      style={{ borderLeft: `3px solid ${task.kind === "done" ? "transparent" : riskAccent[row.risk]}` }}
     >
       <Table.Cell className="!w-[200px] gap-3">
         <div className="flex items-center gap-3">
@@ -57,6 +58,15 @@ export function RenewalRow({ row: baseRow }: RenewalRowProps) {
       <Table.Cell>
         <RiskBadge risk={row.risk} />
       </Table.Cell>
+      {showDecideBy ? (
+        <Table.Cell>
+          <StackedCellText
+            primary={`${row.decideBy}${row.decideByShifted ? " *" : ""}`}
+            secondary={row.daysToDecideBy < 0 ? `${-row.daysToDecideBy}d overdue` : row.daysToDecideBy === 0 ? "today" : `in ${row.daysToDecideBy}d`}
+            secondaryClassName={row.daysToDecideBy < 0 ? "text-ui-fg-error" : "text-ui-fg-subtle"}
+          />
+        </Table.Cell>
+      ) : null}
       <Table.Cell>
         <StackedCellText
           primary={row.cancelBy}
@@ -100,13 +110,15 @@ export function RenewalRow({ row: baseRow }: RenewalRowProps) {
         </div>
       </Table.Cell>
       <Table.Cell>
-        <StatusBadge color={statusTone} className="!h-7 max-w-full !text-[14px]">
-          <span className="truncate">{statusLabel}</span>
-        </StatusBadge>
+        <StackedCellText
+          primary={task.title}
+          secondary={task.due}
+          secondaryClassName={task.level === "lead" || task.level === "overdue" ? "text-ui-fg-error" : "text-ui-fg-subtle"}
+        />
       </Table.Cell>
       <Table.Cell>
         <Button asChild variant={isUrgent ? "primary" : "secondary"} size="base">
-          <Link href={`/renewals/${slug}`}>{action}</Link>
+          <Link href={href}>{action}</Link>
         </Button>
       </Table.Cell>
     </Table.Row>

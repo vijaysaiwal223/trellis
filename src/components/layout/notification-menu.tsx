@@ -5,30 +5,21 @@ import { RiNotification3Line } from "@remixicon/react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { renewals, useAssessedRenewals, windowHeadline } from "@/features/renewal-risk";
-import { integrationApps } from "@/config/integrations";
+import { renewals, renewalTask, useAssessedRenewals } from "@/features/renewal-risk";
 import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
-import { toVendorSlug } from "@/lib/vendor-slug";
-
-// Only renewals worth interrupting someone for (Medium risk and above).
-const ALERT_THRESHOLD = 15;
 
 export function NotificationMenu() {
   const [open, setOpen] = useState(false);
   const assessed = useAssessedRenewals(renewals);
-  const { integrations } = useRenewalRuntime();
-  const deliveredTo = integrationApps
-    .filter((app) => integrations[app.id].connected && integrations[app.id].postEscalations && integrations[app.id].channel)
-    .map((app) => `${app.name} ${integrations[app.id].channel}`);
+  const { resolutions } = useRenewalRuntime();
 
   const alerts = useMemo(
     () =>
       assessed
-        .filter((entry) => !entry.resolved)
-        .map((entry) => entry.row)
-        .filter((row) => row.urgency >= ALERT_THRESHOLD)
-        .sort((a, b) => b.urgency - a.urgency),
-    [assessed],
+        .map((entry) => ({ ...entry, task: renewalTask(entry.row, resolutions[entry.slug]) }))
+        .filter((entry) => entry.task.level === "lead" || entry.task.level === "overdue" || entry.task.level === "soon")
+        .sort((a, b) => b.task.priority - a.task.priority),
+    [assessed, resolutions],
   );
 
   return (
@@ -53,19 +44,19 @@ export function NotificationMenu() {
         <div className="absolute right-0 top-[38px] z-50 flex w-[360px] flex-col overflow-hidden rounded-[8px] bg-ui-bg-base shadow-elevation-flyout">
           <div className="border-b border-ui-border-base px-3 py-2">
             <Text as="span" className="text-[14px] font-medium leading-5 text-ui-fg-base">
-              Needs attention before cancel-by
+              Action queue · in-app reminders
             </Text>
           </div>
           {alerts.length === 0 ? (
             <Text as="p" className="px-3 py-4 text-[14px] leading-5 text-ui-fg-muted">
-              You&apos;re clear. Every renewal at risk has a recorded decision.
+              No urgent renewal steps right now.
             </Text>
           ) : (
             <ul className="flex max-h-[360px] flex-col divide-y divide-ui-border-base overflow-y-auto">
-              {alerts.map((row) => (
-                <li key={row.vendor}>
+              {alerts.map(({ row, slug, task }) => (
+                <li key={slug}>
                   <Link
-                    href={`/renewals/${toVendorSlug(row.vendor)}`}
+                    href={task.href}
                     onClick={() => setOpen(false)}
                     className="flex flex-col gap-0.5 px-3 py-2.5 hover:bg-ui-bg-subtle"
                   >
@@ -77,27 +68,22 @@ export function NotificationMenu() {
                         as="span"
                         className={clx(
                           "text-[12px] font-medium leading-4",
-                          row.timingTone === "danger"
+                          task.level === "lead" || task.level === "overdue"
                             ? "text-ui-fg-error"
-                            : row.timingTone === "warning"
+                            : task.level === "soon"
                               ? "text-ui-tag-orange-text"
                               : "text-ui-fg-subtle",
                         )}
                       >
-                        {windowHeadline(row.daysToCancelBy)}
+                        {task.due}
                       </Text>
                     </span>
                     <Text as="span" className="text-[12px] leading-4 text-ui-fg-subtle">
-                      {row.reasons.filter((reason) => !reason.startsWith("Cancel")).join(" · ")}
+                      {task.title} · {row.owner ?? "Unassigned"} · {row.contractAmount}
                     </Text>
-                    {row.escalationState === "needsDecision" ? (
+                    {task.level === "lead" ? (
                       <Text as="span" className="text-[12px] font-medium leading-4 text-ui-tag-red-text">
-                        Auto-escalated to finance &amp; procurement admins
-                        {deliveredTo.length > 0 ? ` · posted to ${deliveredTo.join(", ")}` : ""}
-                      </Text>
-                    ) : row.escalationState === "waitingOnOwner" ? (
-                      <Text as="span" className="text-[12px] font-medium leading-4 text-ui-tag-orange-text">
-                        Waiting on {row.owner} — cancel window already missed
+                        Lead attention needed in Trellis
                       </Text>
                     ) : null}
                   </Link>

@@ -91,7 +91,7 @@ export function pickAiSuggestionFacts(facts: AiSuggestionFacts): AiSuggestionFac
   };
 }
 
-const actions: DecisionAction[] = ["Renew", "Right-size", "Cancel", "Escalate"];
+const actions: DecisionAction[] = ["Renew", "Renegotiate", "Right-size", "Cancel", "Escalate"];
 
 export function isAiSuggestion(value: unknown): value is AiSuggestion {
   if (!value || typeof value !== "object") return false;

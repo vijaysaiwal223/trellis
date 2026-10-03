@@ -18,7 +18,20 @@ export type ChecklistItem = {
   done: boolean;
 };
 
-export type DecisionAction = "Renew" | "Right-size" | "Cancel" | "Escalate";
+/**
+ * The four decision outcomes are Renew, Renegotiate, Downsize and Cancel.
+ * "Right-size" is the stored value for Downsize (kept so records saved before
+ * the split still load); "Escalate" is a hand-off to the finance lead, not an
+ * outcome.
+ */
+export type DecisionAction = "Renew" | "Renegotiate" | "Right-size" | "Cancel" | "Escalate";
+
+export const decisionOutcomes = ["Renew", "Renegotiate", "Right-size", "Cancel"] as const satisfies readonly DecisionAction[];
+
+/** What a user sees for a stored action. */
+export function actionLabel(action: DecisionAction): string {
+  return action === "Right-size" ? "Downsize" : action === "Escalate" ? "Needs review" : action;
+}
 
 export type DetailRow = {
   label: string;
@@ -37,8 +50,9 @@ export type RenewalDetail = {
     title: string;
     description: string;
   };
-  timeline: [TimelinePoint, TimelinePoint, TimelinePoint, TimelinePoint];
-  timelineSegments: [TimelineTone, TimelineTone, TimelineTone];
+  timeline: TimelinePoint[];
+  /** One tone per gap between consecutive timeline points. */
+  timelineSegments: TimelineTone[];
   timelineNote: string;
   plan: {
     name: string;

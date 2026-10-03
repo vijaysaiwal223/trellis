@@ -9,6 +9,7 @@ import {
   usagePercentFor,
   windowHeadline,
 } from "@/features/renewal-risk";
+import { defaultOrgSettings } from "@/features/renewal-risk/decision-model";
 import { toVendorSlug } from "@/lib/vendor-slug";
 
 import type { AlertTone, DetailRow, RenewalDetail, TimelinePoint, TimelineTone } from "./types";
@@ -33,9 +34,11 @@ const toneRank: Record<TimelineTone, number> = { neutral: 0, warning: 1, danger:
 export const genericRenewalDetails: Record<string, RenewalDetail> = Object.fromEntries(
   rawVendorRecords.map((raw) => {
     const slug = toVendorSlug(raw.vendor);
-    const cancelByDate = cancelByDateFor(raw);
+    // Missing notice terms fall back to the org default, shown as assumed below.
+    const noticeDays = raw.noticePeriodDays ?? defaultOrgSettings.defaultNoticeDays;
+    const cancelByDate = cancelByDateFor(raw, noticeDays);
     const noticePeriodStart = new Date(cancelByDate);
-    noticePeriodStart.setUTCDate(noticePeriodStart.getUTCDate() - raw.noticePeriodDays);
+    noticePeriodStart.setUTCDate(noticePeriodStart.getUTCDate() - noticeDays);
     const renewalDate = new Date(`${raw.renewalDate}T00:00:00Z`);
     const daysToCancelBy = Math.round((cancelByDate.getTime() - TODAY.getTime()) / (1000 * 60 * 60 * 24));
     const ownerless = raw.owner === null;
@@ -71,7 +74,7 @@ export const genericRenewalDetails: Record<string, RenewalDetail> = Object.fromE
     const contactDetails: DetailRow[] = [
       { label: "Annual contract", value: formatCurrency(raw.contractValue) },
       { label: "Renewal type", value: contractTypeFor() },
-      { label: "Notice period", value: `${raw.noticePeriodDays} days` },
+      { label: "Notice period", value: raw.noticePeriodDays === null ? `Not on file — assuming ${noticeDays} days` : `${noticeDays} days` },
       { label: "YoY price change", value: raw.yoyPercent === 0 ? "0%" : `+${raw.yoyPercent}%` },
     ];
 

@@ -1,7 +1,7 @@
 import { clx } from "@medusajs/ui";
-import { RiKanbanView, RiListCheck2 } from "@remixicon/react";
+import { RiKanbanView, RiListCheck2, RiTimeLine } from "@remixicon/react";
 
-const icons = { list: RiListCheck2, kanban: RiKanbanView };
+const icons = { list: RiListCheck2, kanban: RiKanbanView, queue: RiTimeLine };
 
 export type ViewToggleOption<T extends string> = { id: T; label: string; icon: keyof typeof icons };
 

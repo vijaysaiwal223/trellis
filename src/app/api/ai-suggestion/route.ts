@@ -20,8 +20,8 @@ export async function POST(request: Request) {
     "Use only the supplied facts. Do not invent data, dates, names, numbers, trends, savings, vendor terms, or outcomes. Omit any unknown fact.",
     "Return one short recommendation sentence and one short reasoning sentence citing the specific supplied signals. Use plain language for people, such as '6 days past cancel-by'; never expose JSON field names. Confidence is your uncertainty estimate from 0 to 100, not a measured probability.",
     "If the cancel-by window has passed, do not imply ordinary cancellation remains guaranteed. A cancellation suggestion then means requesting goodwill cancellation, subject to vendor agreement.",
-    "If daysToCancelBy is negative, choose Renew, Right-size, or Cancel so the suggestion matches the available recovery decisions.",
-    "Choose exactly one action: Renew, Right-size, Cancel, or Escalate.",
+    "If daysToCancelBy is negative, choose Renew, Renegotiate, Right-size, or Cancel so the suggestion matches the available recovery decisions.",
+    "Choose exactly one action: Renew, Renegotiate (change price or terms), Right-size (downsize seats), Cancel, or Escalate (hand off to the finance lead).",
     `Facts: ${JSON.stringify(facts)}`,
   ].join("\n");
 
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
           responseSchema: {
             type: "OBJECT",
             properties: {
-              action: { type: "STRING", enum: ["Renew", "Right-size", "Cancel", "Escalate"] },
+              action: { type: "STRING", enum: ["Renew", "Renegotiate", "Right-size", "Cancel", "Escalate"] },
               confidence: { type: "INTEGER", minimum: 0, maximum: 100 },
               recommendation: { type: "STRING" },
               reasoning: { type: "STRING" },

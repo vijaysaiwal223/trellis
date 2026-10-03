@@ -7,7 +7,7 @@ export const renewalTableHeaders = [
   "Contract",
   "Owner",
   "Usage",
-  "Status",
+  "Next step",
   "Action",
 ];
 
