@@ -209,26 +209,27 @@ export function RenewalDetailView({ detail, initialTask = null }: { detail: Rene
           className="fixed inset-0 z-50 flex items-center justify-center bg-ui-fg-base/30 p-4"
         >
           <div className="w-full max-w-[560px]">
-            <RecommendationCard
-              detail={detail}
-              decision={resolution?.decision ?? null}
-              history={resolution?.history ?? []}
-              ownerOptions={ownerOptions}
-              currentOwnerName={currentOwnerName}
-              onSave={(record) => {
-                if (!record.draft && record.ownerName && record.ownerName !== currentOwnerName) {
-                  assignOwner(detail.slug, record.ownerName);
-                }
-                confirmDecision(detail.slug, record);
-              }}
-              onClose={closeReview}
-              isPastCancelBy={isPastCancelBy}
-              daysToCancelBy={daysToCancelBy}
-              decideBy={assessedRow?.decideBy}
-              onAskBruno={() => { closeReview(); openBruno(); }}
-              suggestedAction={currentAiSuggestion?.action}
-              suggestedReasoning={currentAiSuggestion?.reasoning}
-            />
+            {assessedRow ? (
+              <RecommendationCard
+                detail={detail}
+                row={assessedRow}
+                decision={resolution?.decision ?? null}
+                ownerOptions={ownerOptions}
+                currentOwnerName={currentOwnerName}
+                onSave={(record) => {
+                  if (!record.draft && record.ownerName && record.ownerName !== currentOwnerName) {
+                    assignOwner(detail.slug, record.ownerName);
+                  }
+                  confirmDecision(detail.slug, record);
+                }}
+                onClose={closeReview}
+                onReassign={() => setAssignOwnerOpen(true)}
+                onAskBruno={() => { closeReview(); openBruno(); }}
+                suggestedAction={currentAiSuggestion?.action}
+                suggestedReasoning={currentAiSuggestion?.reasoning}
+                suggestedConfidence={currentAiSuggestion?.confidence}
+              />
+            ) : null}
           </div>
         </div>
       ) : null}

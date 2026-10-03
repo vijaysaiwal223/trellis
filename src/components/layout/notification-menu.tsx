@@ -1,12 +1,38 @@
 "use client";
 
 import { IconButton, Text, clx } from "@medusajs/ui";
-import { RiNotification3Line } from "@remixicon/react";
+import { RiArrowRightSLine, RiNotification3Line } from "@remixicon/react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { renewals, renewalTask, useAssessedRenewals } from "@/features/renewal-risk";
-import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
+import { renewals, renewalTask, useAssessedRenewals, type Renewal } from "@/features/renewal-risk";
+import type { RenewalTask, RenewalTaskLevel } from "@/features/renewal-risk/workflow";
+import { formatShortISO } from "@/features/renewal-risk/deadlines";
+import { useRenewalRuntime, type RenewalResolution } from "@/lib/renewal-runtime-state";
+
+// Severity is a dot, not a wall of red text: red = missed or closing within a week,
+// amber = past the decide-by date but still open, grey = coming up.
+const SEVERITY: Record<RenewalTaskLevel, { dot: string; label: string }> = {
+  lead: { dot: "bg-ui-tag-red-icon", label: "Urgent" },
+  overdue: { dot: "bg-ui-tag-orange-icon", label: "Overdue" },
+  soon: { dot: "bg-ui-tag-neutral-icon", label: "Coming up" },
+  upcoming: { dot: "bg-ui-tag-neutral-icon", label: "Coming up" },
+  done: { dot: "bg-ui-tag-green-icon", label: "Done" },
+};
+
+const days = (count: number) => `${count} day${count === 1 ? "" : "s"}`;
+
+/** One vocabulary for time: what has closed, what is overdue, or what is next. */
+function timeLine(row: Renewal, task: RenewalTask, resolution: RenewalResolution | undefined): string {
+  if (row.daysToCancelBy < 0) return `Notice window closed ${days(-row.daysToCancelBy)} ago`;
+  if (task.kind === "follow-up") {
+    const when = resolution?.decision?.followUpBy;
+    return when ? `Check back ${formatShortISO(when)}` : "Set a follow-up date";
+  }
+  if (row.daysToDecideBy < 0) return `Decide by ${row.decideBy} · ${days(-row.daysToDecideBy)} overdue`;
+  if (row.daysToDecideBy <= 14) return `Decide by ${row.decideBy} · in ${days(row.daysToDecideBy)}`;
+  return `Cancel-by ${row.cancelBy}`;
+}
 
 export function NotificationMenu() {
   const [open, setOpen] = useState(false);
@@ -16,7 +42,7 @@ export function NotificationMenu() {
   const alerts = useMemo(
     () =>
       assessed
-        .map((entry) => ({ ...entry, task: renewalTask(entry.row, resolutions[entry.slug]) }))
+        .map((entry) => ({ ...entry, resolution: resolutions[entry.slug], task: renewalTask(entry.row, resolutions[entry.slug]) }))
         .filter((entry) => entry.task.level === "lead" || entry.task.level === "overdue" || entry.task.level === "soon")
         .sort((a, b) => b.task.priority - a.task.priority),
     [assessed, resolutions],
@@ -44,53 +70,54 @@ export function NotificationMenu() {
         <div className="absolute right-0 top-[38px] z-50 flex w-[360px] flex-col overflow-hidden rounded-[8px] bg-ui-bg-base shadow-elevation-flyout">
           <div className="border-b border-ui-border-base px-3 py-2">
             <Text as="span" className="text-[14px] font-medium leading-5 text-ui-fg-base">
-              Action queue · in-app reminders
+              Needs your attention · {alerts.length}
             </Text>
           </div>
           {alerts.length === 0 ? (
             <Text as="p" className="px-3 py-4 text-[14px] leading-5 text-ui-fg-muted">
-              No urgent renewal steps right now.
+              Nothing needs attention right now.
             </Text>
           ) : (
             <ul className="flex max-h-[360px] flex-col divide-y divide-ui-border-base overflow-y-auto">
-              {alerts.map(({ row, slug, task }) => (
-                <li key={slug}>
-                  <Link
-                    href={task.href}
-                    onClick={() => setOpen(false)}
-                    className="flex flex-col gap-0.5 px-3 py-2.5 hover:bg-ui-bg-subtle"
-                  >
-                    <span className="flex items-center justify-between gap-2">
-                      <Text as="span" className="text-[14px] font-medium leading-5 text-ui-fg-base">
-                        {row.vendor}
-                      </Text>
-                      <Text
-                        as="span"
-                        className={clx(
-                          "text-[12px] font-medium leading-4",
-                          task.level === "lead" || task.level === "overdue"
-                            ? "text-ui-fg-error"
-                            : task.level === "soon"
-                              ? "text-ui-tag-orange-text"
-                              : "text-ui-fg-subtle",
-                        )}
-                      >
-                        {task.due}
-                      </Text>
-                    </span>
-                    <Text as="span" className="text-[12px] leading-4 text-ui-fg-subtle">
-                      {task.title} · {row.owner ?? "Unassigned"} · {row.contractAmount}
-                    </Text>
-                    {task.level === "lead" ? (
-                      <Text as="span" className="text-[12px] font-medium leading-4 text-ui-tag-red-text">
-                        Lead attention needed in Trellis
-                      </Text>
-                    ) : null}
-                  </Link>
-                </li>
-              ))}
+              {alerts.map(({ row, slug, task, resolution }) => {
+                const severity = SEVERITY[task.level];
+                return (
+                  <li key={slug}>
+                    <Link
+                      href={task.href}
+                      onClick={() => setOpen(false)}
+                      className="group flex items-start gap-2.5 px-3 py-2.5 hover:bg-ui-bg-subtle"
+                    >
+                      <span className={clx("mt-1.5 size-2 shrink-0 rounded-full", severity.dot)}>
+                        <span className="sr-only">{severity.label}</span>
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="flex items-baseline justify-between gap-2">
+                          <Text as="span" className="truncate text-[14px] font-medium leading-5 text-ui-fg-base">
+                            {task.title}
+                          </Text>
+                          <Text as="span" className="shrink-0 text-[12px] font-medium leading-4 text-ui-fg-base">
+                            {row.contractAmount}
+                          </Text>
+                        </span>
+                        <Text as="span" className="truncate text-[12px] leading-4 text-ui-fg-subtle">
+                          {row.vendor} · {timeLine(row, task, resolution)}
+                        </Text>
+                      </span>
+                      <RiArrowRightSLine className="mt-1 size-4 shrink-0 text-ui-fg-muted group-hover:text-ui-fg-base" aria-hidden="true" />
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           )}
+          <Link
+            href="/"
+            onClick={() => setOpen(false)}
+            className="border-t border-ui-border-base px-3 py-2 text-[13px] font-medium text-ui-fg-interactive hover:bg-ui-bg-subtle"
+          >
+            View all in Renewal Risk
+          </Link>
         </div>
       ) : null}
     </div>

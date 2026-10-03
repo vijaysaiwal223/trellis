@@ -100,7 +100,7 @@ export const renewalDetails: Record<string, RenewalDetail> = {
       activeSeats: 51,
       unusedSeats: 9,
       usagePercent: 85,
-      possibleWaste: "$5,760",
+      possibleWaste: "$2,160",
     },
     decisionReadiness: [
       { id: "owner", label: "Assign accountable owner", done: true },
@@ -115,15 +115,15 @@ export const renewalDetails: Record<string, RenewalDetail> = {
       secondaryAction: "Mark decision",
     },
     contactDetails: [
-      { label: "Annual contract", value: "$96,000" },
+      { label: "Annual contract", value: "$14,400" },
       { label: "Renewal type", value: "Auto-renew" },
       { label: "Notice period", value: "30 days" },
       { label: "YoY price change", value: "+4%" },
     ],
     paymentHistory: [
-      { period: "2 years ago", amount: 88000 },
-      { period: "Last year", amount: 92000 },
-      { period: "This year", amount: 96000 },
+      { period: "2 years ago", amount: 13300 },
+      { period: "Last year", amount: 13800 },
+      { period: "This year", amount: 14400 },
     ],
     usageTrend: [
       { month: "Apr", purchasedSeats: 60, activeSeats: 47 },
@@ -137,7 +137,7 @@ export const renewalDetails: Record<string, RenewalDetail> = {
       { label: "Purchase seats", value: "60" },
       { label: "Active seats", value: "51" },
       { label: "Seat usage", value: "85%", progress: 85 },
-      { label: "Possible waste", value: "$5,760" },
+      { label: "Possible waste", value: "$2,160" },
     ],
     ownership: [
       { label: "Current owner", value: "Rohan Mehta" },
@@ -170,7 +170,7 @@ export const renewalDetails: Record<string, RenewalDetail> = {
       activeSeats: 31,
       unusedSeats: 9,
       usagePercent: 78,
-      possibleWaste: "$21,600",
+      possibleWaste: "$4,050",
     },
     decisionReadiness: [
       { id: "owner", label: "Assign accountable owner", done: false },
@@ -185,15 +185,15 @@ export const renewalDetails: Record<string, RenewalDetail> = {
       secondaryAction: "Mark decision",
     },
     contactDetails: [
-      { label: "Annual contract", value: "$96,000" },
+      { label: "Annual contract", value: "$18,000" },
       { label: "Renewal type", value: "Manual" },
       { label: "Notice period", value: "30 days" },
       { label: "YoY price change", value: "+1%" },
     ],
     paymentHistory: [
-      { period: "2 years ago", amount: 94000 },
-      { period: "Last year", amount: 95000 },
-      { period: "This year", amount: 96000 },
+      { period: "2 years ago", amount: 17600 },
+      { period: "Last year", amount: 17800 },
+      { period: "This year", amount: 18000 },
     ],
     usageTrend: [
       { month: "Apr", purchasedSeats: 40, activeSeats: 26 },
@@ -207,7 +207,7 @@ export const renewalDetails: Record<string, RenewalDetail> = {
       { label: "Purchase seats", value: "40" },
       { label: "Active seats", value: "31" },
       { label: "Seat usage", value: "78%", progress: 78 },
-      { label: "Possible waste", value: "$21,600" },
+      { label: "Possible waste", value: "$4,050" },
     ],
     ownership: [
       { label: "Previous owner", value: "Rohan Mehta" },
@@ -240,7 +240,7 @@ export const renewalDetails: Record<string, RenewalDetail> = {
       activeSeats: 22,
       unusedSeats: 3,
       usagePercent: 88,
-      possibleWaste: "$11,520",
+      possibleWaste: "$720",
     },
     decisionReadiness: [
       { id: "owner", label: "Assign accountable owner", done: true },
@@ -255,15 +255,15 @@ export const renewalDetails: Record<string, RenewalDetail> = {
       secondaryAction: "Mark decision",
     },
     contactDetails: [
-      { label: "Annual contract", value: "$96,000" },
+      { label: "Annual contract", value: "$6,000" },
       { label: "Renewal type", value: "Month-to-month" },
       { label: "Notice period", value: "30 days" },
       { label: "YoY price change", value: "+9%" },
     ],
     paymentHistory: [
-      { period: "2 years ago", amount: 83000 },
-      { period: "Last year", amount: 88000 },
-      { period: "This year", amount: 96000 },
+      { period: "2 years ago", amount: 5100 },
+      { period: "Last year", amount: 5500 },
+      { period: "This year", amount: 6000 },
     ],
     usageTrend: [
       { month: "Apr", purchasedSeats: 25, activeSeats: 19 },
@@ -277,7 +277,7 @@ export const renewalDetails: Record<string, RenewalDetail> = {
       { label: "Purchase seats", value: "25" },
       { label: "Active seats", value: "22" },
       { label: "Seat usage", value: "88%", progress: 88 },
-      { label: "Possible waste", value: "$11,520" },
+      { label: "Possible waste", value: "$720" },
     ],
     ownership: [
       { label: "Current owner", value: "Jasmine Patel" },
@@ -310,7 +310,7 @@ export const renewalDetails: Record<string, RenewalDetail> = {
       activeSeats: 23,
       unusedSeats: 2,
       usagePercent: 91,
-      possibleWaste: "$7,680",
+      possibleWaste: "$600",
     },
     decisionReadiness: [
       { id: "owner", label: "Assign accountable owner", done: true },
@@ -325,15 +325,15 @@ export const renewalDetails: Record<string, RenewalDetail> = {
       secondaryAction: "Mark decision",
     },
     contactDetails: [
-      { label: "Annual contract", value: "$96,000" },
+      { label: "Annual contract", value: "$7,500" },
       { label: "Renewal type", value: "Month-to-month" },
       { label: "Notice period", value: "30 days" },
       { label: "YoY price change", value: "+6%" },
     ],
     paymentHistory: [
-      { period: "2 years ago", amount: 87000 },
-      { period: "Last year", amount: 91000 },
-      { period: "This year", amount: 96000 },
+      { period: "2 years ago", amount: 6600 },
+      { period: "Last year", amount: 7100 },
+      { period: "This year", amount: 7500 },
     ],
     usageTrend: [
       { month: "Apr", purchasedSeats: 25, activeSeats: 20 },
@@ -347,7 +347,7 @@ export const renewalDetails: Record<string, RenewalDetail> = {
       { label: "Purchase seats", value: "25" },
       { label: "Active seats", value: "23" },
       { label: "Seat usage", value: "91%", progress: 91 },
-      { label: "Possible waste", value: "$7,680" },
+      { label: "Possible waste", value: "$600" },
     ],
     ownership: [
       { label: "Current owner", value: "Marcus Webb" },
