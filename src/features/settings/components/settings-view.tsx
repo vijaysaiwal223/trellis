@@ -7,13 +7,12 @@ import { Alert } from "@/components/ui/alert";
 import { renewals, useAssessedRenewals } from "@/features/renewal-risk";
 import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
 
-import { DecisionsTab } from "./decisions-tab";
 import { DeparturesTab } from "./departures-tab";
 import { IntegrationsTab } from "./integrations-tab";
 import { OwnershipTab } from "./ownership-tab";
 import { RemindersTab } from "./reminders-tab";
 
-const tabs = ["Ownership", "Integration", "Departure", "Reminder", "Decisions"] as const;
+const tabs = ["Ownership", "Integration", "Departure", "Reminder"] as const;
 type Tab = (typeof tabs)[number];
 
 function Stat({ label, value, tone }: { label: string; value: number; tone?: "danger" | "success" }) {
@@ -51,13 +50,6 @@ export function SettingsView() {
   }, []);
 
   useEffect(() => () => clearTimeout(timer.current), []);
-
-  // Deep links like /settings?tab=Decisions open that tab.
-  useEffect(() => {
-    const requested = new URLSearchParams(window.location.search).get("tab");
-    const match = tabs.find((name) => name === requested);
-    if (match) queueMicrotask(() => setTab(match));
-  }, []);
 
   const connectedCount = Object.values(integrations).filter((entry) => entry.connected).length;
   // Integrations flag red when nothing is connected: alerts then only live inside Trellis.
@@ -134,7 +126,6 @@ export function SettingsView() {
       {tab === "Integration" ? <IntegrationsTab notify={notify} /> : null}
       {tab === "Departure" ? <DeparturesTab notify={notify} /> : null}
       {tab === "Reminder" ? <RemindersTab /> : null}
-      {tab === "Decisions" ? <DecisionsTab notify={notify} /> : null}
     </div>
   );
 }

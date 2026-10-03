@@ -7,7 +7,6 @@ import {
   type RemixiconComponentType,
 } from "@remixicon/react";
 
-import { formatTotals, sumByCurrency } from "./money";
 import type { Renewal } from "./types";
 
 export type MetricKey = "decision" | "lowUsage" | "autoRenew" | "cancelBy30" | "missingOwner";
@@ -23,6 +22,7 @@ export type RenewalMetric = {
 
 type AssessedEntry = { row: Renewal; resolved: boolean };
 
+const formatCompactCurrency = (amount: number) => `$${Math.round(amount / 1000)}k`;
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
 type MetricDef = {
@@ -89,8 +89,7 @@ export function deriveMetrics(assessed: AssessedEntry[]): RenewalMetric[] {
     const matches = assessed.filter(def.match);
     const count = matches.length;
     const value = def.isDollar
-      ? // Never summed across currencies: a mixed portfolio shows one subtotal per currency.
-        formatTotals(sumByCurrency(matches.map((entry) => ({ amount: entry.row.contractValue, currency: entry.row.currency }))))
+      ? formatCompactCurrency(matches.reduce((sum, entry) => sum + entry.row.contractValue, 0))
       : String(count);
     return { key: def.key, icon: def.icon, label: def.label, value, detail: def.detail(count), count };
   });

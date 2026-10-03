@@ -8,12 +8,12 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { renewals, useAssessedRenewals, windowHeadline } from "@/features/renewal-risk";
-import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
+import { mintToken } from "@/features/renewal-risk/nudge-link";
 import { toVendorSlug } from "@/lib/vendor-slug";
 
 import { actionLabel, type RenewalDetail } from "../types";
 
-const nudgeActions = ["Renew", "Renegotiate", "Right-size", "Cancel", "Not mine"] as const;
+const nudgeActions = ["Renew", "Right-size", "Cancel", "Not mine"] as const;
 
 /** Simulated owner message with a working link into the no-login decision page. */
 export function OwnerNudgePreview({ detail }: { detail: RenewalDetail }) {
@@ -21,11 +21,9 @@ export function OwnerNudgePreview({ detail }: { detail: RenewalDetail }) {
   const slug = toVendorSlug(detail.vendor);
   const assessed = useAssessedRenewals(renewals);
   const row = assessed.find((entry) => entry.slug === slug)?.row;
-  const { flags, outbox } = useRenewalRuntime();
-  const decisionsOn = flags.renewalDecisions;
-  // With Renewal Decisions on, the buttons carry the real signed link from the latest reminder.
-  const sent = [...outbox].reverse().find((entry) => entry.contractId === slug && entry.role === "decider");
-  const linkFor = (action: string) => `/decide/${slug}?action=${encodeURIComponent(action)}${decisionsOn && sent ? `&t=${encodeURIComponent(sent.token)}` : ""}`;
+  // Each nudge carries its own signed, single-use link into the no-login decision page.
+  const token = row?.owner ? mintToken(slug, row.owner) : null;
+  const linkFor = (action: string) => `/decide/${slug}?action=${encodeURIComponent(action)}${token ? `&t=${encodeURIComponent(token)}` : ""}`;
 
   return (
     <>
@@ -47,7 +45,7 @@ export function OwnerNudgePreview({ detail }: { detail: RenewalDetail }) {
           >
             <div className="flex items-center justify-between">
               <Text as="span" className="text-[12px] font-medium uppercase tracking-wide text-ui-fg-muted">
-                Example message for {(decisionsOn ? (sent?.recipient ?? row.decider) : row.owner) ?? "the decider"}
+                Example message for {row.owner ?? "the owner"}
               </Text>
               <button
                 type="button"
@@ -66,29 +64,23 @@ export function OwnerNudgePreview({ detail }: { detail: RenewalDetail }) {
                   <span className="font-medium">{detail.vendor}</span> renews for{" "}
                   <span className="font-medium">{row.contractAmount}</span>. You must cancel by{" "}
                   <span className="font-medium">{row.cancelBy}</span> ({windowHeadline(row.daysToCancelBy).toLowerCase()}).{" "}
-                  {decisionsOn ? <>Please decide by <span className="font-medium">{row.decideBy}</span>. </> : null}
+                  Please decide by <span className="font-medium">{row.decideBy}</span>.{" "}
                   {detail.plan.activeSeats} of {detail.plan.purchasedSeats} seats active ({detail.plan.usagePercent}%).
                 </Text>
-                {decisionsOn && !sent ? (
-                  <Text as="p" className="text-[12px] leading-4 text-ui-fg-subtle">
-                    No reminder has gone out for this renewal yet, so there is no signed link to try. Links are issued when the ladder reaches this contract.
-                  </Text>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {nudgeActions.map((action) => (
-                      <Button key={action} asChild variant="secondary" size="small">
-                        <Link href={linkFor(action)} onClick={() => setOpen(false)}>
-                          {action === "Not mine" ? action : actionLabel(action)}
-                        </Link>
-                      </Button>
-                    ))}
-                  </div>
-                )}
+                <div className="flex flex-wrap gap-2">
+                  {nudgeActions.map((action) => (
+                    <Button key={action} asChild variant="secondary" size="small">
+                      <Link href={linkFor(action)} onClick={() => setOpen(false)}>
+                        {action === "Not mine" ? action : actionLabel(action)}
+                      </Link>
+                    </Button>
+                  ))}
+                </div>
               </div>
             </div>
 
             <Text as="p" className="text-[12px] leading-4 text-ui-fg-muted">
-              Preview only. No Slack or email message is sent. {decisionsOn ? "These are the real one-click links from the latest reminder; each works once." : "These links open the owner decision page in this prototype."}
+              Preview only. No Slack or email message is sent. Each link is signed and works once.
             </Text>
           </div>
         </div>

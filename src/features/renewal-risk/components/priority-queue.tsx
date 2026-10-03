@@ -10,7 +10,7 @@ import { resolveRenewalDisplay } from "../resolve-display";
 import type { Renewal } from "../types";
 
 export function PriorityQueue({ items }: { items: { slug: string; row: Renewal }[] }) {
-  const { resolutions, flags } = useRenewalRuntime();
+  const { resolutions } = useRenewalRuntime();
   const tasks = items
     .map(({ slug, row }) => resolveRenewalDisplay(row, resolutions[slug]))
     .filter(({ task }) => task.kind !== "done")
@@ -25,7 +25,7 @@ export function PriorityQueue({ items }: { items: { slug: string; row: Renewal }
           <span className="rounded-full bg-ui-bg-subtle-hover px-2 py-0.5 text-[11px] font-medium text-ui-fg-subtle">{tasks.length} open</span>
         </div>
         <Text as="p" className="text-[12px] leading-4 text-ui-fg-subtle">
-          {leadCount > 0 ? `${leadCount} urgent or overdue · ` : ""}{flags.renewalDecisions ? "Reminders at T−30 · T−14 · T−7 before decide-by" : "Owner by T−30 · decision by T−14 · lead review at T−7"}
+          {leadCount > 0 ? `${leadCount} urgent or overdue · ` : ""}Owner by T−30 · decision by T−14 · lead review at T−7
         </Text>
       </div>
       {tasks.length === 0 ? (
@@ -45,7 +45,7 @@ export function PriorityQueue({ items }: { items: { slug: string; row: Renewal }
                     <Text as="span" className="truncate text-[13px] font-semibold leading-5 text-ui-fg-base">{row.vendor}</Text>
                     <Text as="span" className="shrink-0 text-[12px] font-medium text-ui-fg-base">{row.contractAmount}</Text>
                   </div>
-                  <Text as="p" className="text-[12px] leading-4 text-ui-fg-subtle">{flags.renewalDecisions ? `Decide by ${row.decideBy}` : `Cancel-by ${row.cancelBy}`} · {(flags.renewalDecisions ? row.decider : row.owner) ?? "Unassigned"}</Text>
+                  <Text as="p" className="text-[12px] leading-4 text-ui-fg-subtle">Cancel-by {row.cancelBy} · {row.owner ?? "Unassigned"}</Text>
                 </div>
               </div>
               <div className="flex items-end justify-between gap-2">

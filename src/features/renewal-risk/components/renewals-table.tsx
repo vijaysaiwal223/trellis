@@ -22,9 +22,7 @@ type RenewalsTableProps = {
 
 export function RenewalsTable({ renewals, filterKey, onClearFilter }: RenewalsTableProps) {
   const assessed = useAssessedRenewals(renewals);
-  const { resolutions, flags } = useRenewalRuntime();
-  const decisionsOn = flags.renewalDecisions;
-  const headers = decisionsOn ? renewalTableHeaders.flatMap((header) => (header === "Cancel-by" ? ["Decide by", header] : [header])) : renewalTableHeaders;
+  const { resolutions } = useRenewalRuntime();
 
   // Rank the next action, including overdue follow-up after a decision.
   const rows = useMemo(() => {
@@ -46,10 +44,10 @@ export function RenewalsTable({ renewals, filterKey, onClearFilter }: RenewalsTa
           </Button>
         </div>
       ) : null}
-      <Table className="min-w-[1340px] table-fixed !text-[14px]">
+      <Table className="min-w-[1240px] table-fixed !text-[14px]">
         <Table.Header>
           <Table.Row className="!bg-ui-bg-subtle-hover hover:!bg-ui-bg-subtle-hover [&_th]:h-10 [&_th]:!px-3 [&_th:first-child]:!pl-3 [&_th:last-child]:!pr-3">
-            {headers.map((header, index) => (
+            {renewalTableHeaders.map((header, index) => (
               <Table.HeaderCell
                 key={header}
                 className={clx(
@@ -66,12 +64,12 @@ export function RenewalsTable({ renewals, filterKey, onClearFilter }: RenewalsTa
         <Table.Body className="[&_tr:last-child]:border-b-0">
           {rows.length === 0 ? (
             <Table.Row>
-              <td colSpan={headers.length} className="h-24 text-center text-ui-fg-muted">
+              <td colSpan={renewalTableHeaders.length} className="h-24 text-center text-ui-fg-muted">
                 No renewals match this filter.
               </td>
             </Table.Row>
           ) : (
-            rows.map(({ row }) => <RenewalRow key={row.id} row={row} showDecideBy={decisionsOn} />)
+            rows.map(({ row }) => <RenewalRow key={row.id} row={row} />)
           )}
         </Table.Body>
       </Table>

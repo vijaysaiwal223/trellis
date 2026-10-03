@@ -39,7 +39,7 @@ export function liveTimeline(row: Renewal, today: string, decided: boolean): Pic
         ? `Decision recorded. Cancel-by is ${row.cancelBy}.`
         : row.daysToDecideBy < 0
           ? `Decide-by (${row.decideBy}) has passed — ${-row.daysToDecideBy} day${row.daysToDecideBy === -1 ? "" : "s"} overdue. Cancel-by is ${row.cancelBy}.`
-          : `Decide by ${row.decideBy}, ${row.leadTimeDays} days before the notice deadline. The deadline that bites is cancel-by (${row.cancelBy}), not the renewal date.`;
+          : `Decide by ${row.decideBy}, two weeks before the notice deadline. The deadline that bites is cancel-by (${row.cancelBy}), not the renewal date.`;
 
   return { timeline, timelineSegments, timelineNote };
 }

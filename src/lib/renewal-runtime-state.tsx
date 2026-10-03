@@ -15,53 +15,59 @@ import {
   type IntegrationId,
   type IntegrationSettings,
 } from "@/config/integrations";
-import { calendarDateIn, type ISODate } from "@/features/renewal-risk/deadlines";
-import {
-  defaultOrgSettings,
-  isDecisionClosed,
-  type AnalyticsEvent,
-  type DecisionEvent,
-  type DecisionRecord,
-  type OrgSettings,
-  type OutboxEntry,
-  type RenewalOutcome,
-  type RenewalResolution,
-  type TermsOverride,
-} from "@/features/renewal-risk/decision-model";
-import type { RenewalSeed } from "@/features/renewal-risk/types";
-import { defaultFlags, type FlagName, type Flags } from "@/lib/flags";
-import { now, stamp } from "@/lib/clock";
-import { parseSnapshot } from "@/lib/runtime-snapshot";
+import type { DecisionAction } from "@/features/renewal-detail/types";
+import { stamp } from "@/lib/clock";
 
-// The decision model lives in the renewal-risk feature; re-exported so existing imports keep working.
-export { isDecisionClosed };
-export type { DecisionEvent, DecisionRecord, RenewalResolution };
+export type DecisionRecord = {
+  action: DecisionAction;
+  note: string;
+  ownerName?: string;
+  targetOutcome?: string;
+  renewalStatus?: string;
+  followUpBy?: string;
+  recordedAt?: string;
+  confirmedAt?: string;
+  /** True while the decision is saved but not yet final — doesn't count as "resolved". */
+  draft?: boolean;
+};
 
-/** v1 is read once and migrated; it is never rewritten, so rolling back loses nothing. */
-const STORAGE_KEY = "trellis-renewal-runtime-v2";
-const LEGACY_STORAGE_KEY = "trellis-renewal-runtime-v1";
+export type RenewalResolution = {
+  decision?: DecisionRecord;
+  ownerAssigned?: string;
+  history?: DecisionEvent[];
+};
 
-const MAX_OUTBOX = 500;
-const MAX_EVENTS = 1000;
+export type DecisionEvent = {
+  at: string;
+  label: "Draft saved" | "Decision recorded" | "Decision corrected" | "Outcome confirmed";
+  action: DecisionAction;
+  ownerName?: string;
+};
+
+/**
+ * Recording a decision isn't the same as the underlying work being done —
+ * Cancel and Downsize both hand off real-world follow-through (confirming
+ * with the vendor, agreeing new terms) that this prototype can't verify
+ * automatically. A recorded intent only closes the risk after someone
+ * confirms its outcome.
+ */
+export function isDecisionClosed(decision: DecisionRecord): boolean {
+  if (decision.draft) return false;
+  return Boolean(decision.confirmedAt);
+}
+
+const STORAGE_KEY = "trellis-renewal-runtime-v1";
 
 type RenewalRuntimeContextValue = {
-  /** False until the browser store has been read; anything that writes state waits for it. */
-  ready: boolean;
-  /** Keyed by contract id (the vendor slug unless a seed sets its own). */
+  /** Keyed by vendor slug (see @/lib/vendor-slug). */
   resolutions: Record<string, RenewalResolution>;
   assignOwner: (slug: string, name: string) => void;
-  /** Names who decides; separate from the person who runs the tool. */
-  assignDecider: (slug: string, name: string) => void;
   confirmDecision: (slug: string, decision: DecisionRecord) => void;
-  /** Confirmed notice terms, typed in or extracted from a contract. */
-  setTerms: (slug: string, terms: Omit<TermsOverride, "confirmedAt">) => void;
-  setLeadTimeOverride: (slug: string, days: number | null) => void;
-  acknowledge: (slug: string, step: string) => void;
-  /** Returns false when the snooze limit has been reached. */
-  snooze: (slug: string, until: ISODate) => boolean;
-  recordOutcome: (slug: string, cycle: ISODate, outcome: RenewalOutcome) => void;
-  setInactive: (slug: string, inactive: boolean) => void;
-  toggleTask: (slug: string, taskId: string) => void;
+  /** One-click links already used to record a decision; each works once. */
+  usedTokens: string[];
+  markTokenUsed: (token: string) => void;
+  /** False until the browser store has been read. */
+  ready: boolean;
   /** People who have left the company; tools they own count as unowned. */
   departedOwners: string[];
   markDeparted: (name: string) => void;
@@ -72,30 +78,9 @@ type RenewalRuntimeContextValue = {
   /** Prototype settings for future external alerts; no delivery is connected. */
   integrations: Record<IntegrationId, IntegrationSettings>;
   updateIntegration: (id: IntegrationId, patch: Partial<IntegrationSettings>) => void;
-  settings: OrgSettings;
-  updateSettings: (patch: Partial<OrgSettings>) => void;
-  flags: Flags;
-  setFlag: (name: FlagName, value: boolean) => void;
-  /** Today in the org's time zone, from the shared clock. */
-  today: ISODate;
-  /** Every nudge the simulated delivery layer has "sent". There is no real delivery. */
-  outbox: OutboxEntry[];
-  appendOutbox: (entries: OutboxEntry[]) => void;
-  markTokenUsed: (token: string) => void;
-  events: AnalyticsEvent[];
-  logEvent: (event: Omit<AnalyticsEvent, "at">) => void;
-  /** Contracts added by CSV import or contract upload, on top of the built-in fixtures. */
-  addedContracts: RenewalSeed[];
-  addContracts: (seeds: RenewalSeed[]) => void;
-  /** Wipes recorded decisions, nudges and added contracts, keeping settings and flags. */
-  resetDemo: () => void;
 };
 
 const RenewalRuntimeContext = createContext<RenewalRuntimeContextValue | null>(null);
-
-function withHistory(previous: RenewalResolution | undefined, entry: Omit<DecisionEvent, "at">): DecisionEvent[] {
-  return [...(previous?.history ?? []), { ...entry, at: stamp() }];
-}
 
 /**
  * Browser-local state shared between the Renewal Risk dashboard, the
@@ -108,30 +93,29 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
   const [departedOwners, setDepartedOwners] = useState<string[]>([]);
   const [autoHandoff, setAutoHandoff] = useState(true);
   const [integrations, setIntegrations] = useState(defaultIntegrations);
-  const [settings, setSettings] = useState<OrgSettings>(defaultOrgSettings);
-  const [flags, setFlags] = useState<Flags>(defaultFlags);
-  const [outbox, setOutbox] = useState<OutboxEntry[]>([]);
-  const [events, setEvents] = useState<AnalyticsEvent[]>([]);
-  const [addedContracts, setAddedContracts] = useState<RenewalSeed[]>([]);
+  const [usedTokens, setUsedTokens] = useState<string[]>([]);
 
   useEffect(() => {
     let active = true;
     queueMicrotask(() => {
       if (!active) return;
       try {
-        // v2 wins; otherwise migrate v1 (same shape minus the new optional fields).
-        const saved = window.localStorage.getItem(STORAGE_KEY) ?? window.localStorage.getItem(LEGACY_STORAGE_KEY);
+        const saved = window.localStorage.getItem(STORAGE_KEY);
         if (saved) {
-          const snapshot = parseSnapshot(saved);
-          if (snapshot.resolutions) setResolutions(snapshot.resolutions);
-          if (snapshot.departedOwners) setDepartedOwners(snapshot.departedOwners);
-          if (snapshot.autoHandoff !== undefined) setAutoHandoff(snapshot.autoHandoff);
-          if (snapshot.integrations) setIntegrations(snapshot.integrations);
-          if (snapshot.settings) setSettings(snapshot.settings);
-          if (snapshot.flags) setFlags(snapshot.flags);
-          if (snapshot.outbox) setOutbox(snapshot.outbox);
-          if (snapshot.events) setEvents(snapshot.events);
-          if (snapshot.addedContracts) setAddedContracts(snapshot.addedContracts);
+          const snapshot = JSON.parse(saved) as Record<string, unknown>;
+          if (snapshot.resolutions && typeof snapshot.resolutions === "object" && !Array.isArray(snapshot.resolutions)) {
+            setResolutions(snapshot.resolutions as Record<string, RenewalResolution>);
+          }
+          if (Array.isArray(snapshot.departedOwners)) {
+            setDepartedOwners(snapshot.departedOwners.filter((name): name is string => typeof name === "string"));
+          }
+          if (typeof snapshot.autoHandoff === "boolean") setAutoHandoff(snapshot.autoHandoff);
+          if (snapshot.integrations && typeof snapshot.integrations === "object" && !Array.isArray(snapshot.integrations)) {
+            setIntegrations(snapshot.integrations as Record<IntegrationId, IntegrationSettings>);
+          }
+          if (Array.isArray(snapshot.usedTokens)) {
+            setUsedTokens(snapshot.usedTokens.filter((token): token is string => typeof token === "string"));
+          }
         }
       } catch {
         // A corrupt or unavailable browser store must not prevent use of the prototype.
@@ -145,45 +129,23 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!restored) return;
     try {
-      window.localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ resolutions, departedOwners, autoHandoff, integrations, settings, flags, outbox, events, addedContracts }),
-      );
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ resolutions, departedOwners, autoHandoff, integrations, usedTokens }));
     } catch {
       // The session remains usable when storage is blocked or full.
     }
-  }, [restored, resolutions, departedOwners, autoHandoff, integrations, settings, flags, outbox, events, addedContracts]);
-
-  const today = useMemo(() => calendarDateIn(now(), settings.orgTimeZone), [settings.orgTimeZone]);
-
-  const patchResolution = useCallback((slug: string, patch: (previous: RenewalResolution | undefined) => RenewalResolution) => {
-    setResolutions((prev) => ({ ...prev, [slug]: patch(prev[slug]) }));
-  }, []);
-
-  const logEvent = useCallback((event: Omit<AnalyticsEvent, "at">) => {
-    setEvents((prev) => [...prev, { ...event, at: stamp() }].slice(-MAX_EVENTS));
-  }, []);
+  }, [restored, resolutions, departedOwners, autoHandoff, integrations, usedTokens]);
 
   const assignOwner = useCallback((slug: string, name: string) => {
-    patchResolution(slug, (previous) => ({
-      ...previous,
-      ownerAssigned: name,
-      history: withHistory(previous, { label: "Owner assigned", ownerName: name }),
+    setResolutions((prev) => ({
+      ...prev,
+      [slug]: { ...prev[slug], ownerAssigned: name },
     }));
-  }, [patchResolution]);
-
-  const assignDecider = useCallback((slug: string, name: string) => {
-    patchResolution(slug, (previous) => ({
-      ...previous,
-      deciderAssigned: name,
-      history: withHistory(previous, { label: "Decider assigned", ownerName: name }),
-    }));
-  }, [patchResolution]);
+  }, []);
 
   const confirmDecision = useCallback((slug: string, decision: DecisionRecord) => {
     setResolutions((prev) => {
       const previous = prev[slug];
-      const at = stamp();
+      const now = stamp();
       const label: DecisionEvent["label"] = decision.draft
         ? "Draft saved"
         : decision.confirmedAt && !previous?.decision?.confirmedAt
@@ -199,88 +161,17 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
             ...decision,
             recordedAt: decision.draft
               ? decision.recordedAt
-              : decision.recordedAt ?? previous?.decision?.recordedAt ?? at,
+              : decision.recordedAt ?? previous?.decision?.recordedAt ?? now,
           },
-          history: [...(previous?.history ?? []), { at, label, action: decision.action, ownerName: decision.ownerName }],
+          history: [...(previous?.history ?? []), { at: now, label, action: decision.action, ownerName: decision.ownerName }],
         },
       };
     });
-    if (!decision.draft) {
-      logEvent({
-        type: decision.confirmedAt ? "outcome_confirmed" : "decision_recorded",
-        contractId: slug,
-        detail: decision.action,
-      });
-    }
-  }, [logEvent]);
+  }, []);
 
-  const setTerms = useCallback((slug: string, terms: Omit<TermsOverride, "confirmedAt">) => {
-    patchResolution(slug, (previous) => ({
-      ...previous,
-      terms: { ...previous?.terms, ...terms, confirmedAt: stamp() },
-      history: withHistory(previous, {
-        label: "Notice terms confirmed",
-        detail: terms.noticePeriodDays !== undefined ? `${terms.noticePeriodDays}-day notice (${terms.source})` : undefined,
-      }),
-    }));
-    logEvent({ type: "terms_captured", contractId: slug, detail: terms.source });
-  }, [patchResolution, logEvent]);
-
-  const setLeadTimeOverride = useCallback((slug: string, days: number | null) => {
-    patchResolution(slug, (previous) => ({
-      ...previous,
-      leadTimeOverrideDays: days === null ? undefined : days,
-      history: withHistory(previous, {
-        label: "Lead time changed",
-        detail: days === null ? "Back to the org default" : `${days} days`,
-      }),
-    }));
-  }, [patchResolution]);
-
-  const acknowledge = useCallback((slug: string, step: string) => {
-    patchResolution(slug, (previous) => {
-      if (previous?.acks?.[step]) return previous;
-      return {
-        ...previous,
-        acks: { ...previous?.acks, [step]: stamp() },
-        history: withHistory(previous, { label: "Reminder acknowledged", detail: step }),
-      };
-    });
-    setOutbox((prev) => prev.map((entry) => (entry.contractId === slug && entry.step === step && !entry.ackedAt ? { ...entry, ackedAt: stamp() } : entry)));
-    logEvent({ type: "nudge_acknowledged", contractId: slug, detail: step });
-  }, [patchResolution, logEvent]);
-
-  const snooze = useCallback((slug: string, until: ISODate) => {
-    const count = resolutions[slug]?.snooze?.count ?? 0;
-    if (count >= settings.snoozeLimit) return false;
-    patchResolution(slug, (previous) => ({
-      ...previous,
-      snooze: { until, count: (previous?.snooze?.count ?? 0) + 1 },
-      history: withHistory(previous, { label: "Reminders snoozed", detail: `until ${until}` }),
-    }));
-    logEvent({ type: "reminders_snoozed", contractId: slug, detail: until });
-    return true;
-  }, [resolutions, settings.snoozeLimit, patchResolution, logEvent]);
-
-  const recordOutcome = useCallback((slug: string, cycle: ISODate, outcome: RenewalOutcome) => {
-    patchResolution(slug, (previous) => ({
-      ...previous,
-      outcomes: { ...previous?.outcomes, [cycle]: outcome },
-      history: withHistory(previous, { label: "Renewal outcome recorded", detail: `${cycle}: ${outcome}` }),
-    }));
-  }, [patchResolution]);
-
-  const setInactive = useCallback((slug: string, inactive: boolean) => {
-    patchResolution(slug, (previous) => ({ ...previous, inactive }));
-  }, [patchResolution]);
-
-  const toggleTask = useCallback((slug: string, taskId: string) => {
-    patchResolution(slug, (previous) => {
-      const decision = previous?.decision;
-      if (!decision?.tasks) return previous ?? {};
-      return { ...previous, decision: { ...decision, tasks: decision.tasks.map((task) => (task.id === taskId ? { ...task, done: !task.done } : task)) } };
-    });
-  }, [patchResolution]);
+  const markTokenUsed = useCallback((token: string) => {
+    setUsedTokens((prev) => (prev.includes(token) ? prev : [...prev, token]));
+  }, []);
 
   const markDeparted = useCallback((name: string) => {
     setDepartedOwners((prev) => (prev.includes(name) ? prev : [...prev, name]));
@@ -294,58 +185,14 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
     setIntegrations((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   }, []);
 
-  const updateSettings = useCallback((patch: Partial<OrgSettings>) => {
-    setSettings((prev) => ({ ...prev, ...patch }));
-  }, []);
-
-  const setFlag = useCallback((name: FlagName, value: boolean) => {
-    setFlags((prev) => ({ ...prev, [name]: value }));
-  }, []);
-
-  const appendOutbox = useCallback((entries: OutboxEntry[]) => {
-    if (entries.length === 0) return;
-    setOutbox((prev) => [...prev, ...entries].slice(-MAX_OUTBOX));
-    setEvents((prev) => [
-      ...prev,
-      ...entries.map((entry): AnalyticsEvent => ({
-        at: entry.sentAt,
-        type: entry.step === "digest" ? "digest_sent" : "nudge_sent",
-        contractId: entry.contractId,
-        detail: entry.step === "digest" ? entry.recipient : `${entry.step}:${entry.role}`,
-      })),
-    ].slice(-MAX_EVENTS));
-  }, []);
-
-  const markTokenUsed = useCallback((token: string) => {
-    setOutbox((prev) => prev.map((entry) => (entry.token === token && !entry.usedAt ? { ...entry, usedAt: stamp() } : entry)));
-  }, []);
-
-  const addContracts = useCallback((seeds: RenewalSeed[]) => {
-    setAddedContracts((prev) => [...prev, ...seeds]);
-  }, []);
-
-  const resetDemo = useCallback(() => {
-    setResolutions({});
-    setOutbox([]);
-    setEvents([]);
-    setAddedContracts([]);
-    setDepartedOwners([]);
-  }, []);
-
   const value = useMemo(
     () => ({
-      ready: restored,
       resolutions,
       assignOwner,
-      assignDecider,
       confirmDecision,
-      setTerms,
-      setLeadTimeOverride,
-      acknowledge,
-      snooze,
-      recordOutcome,
-      setInactive,
-      toggleTask,
+      usedTokens,
+      markTokenUsed,
+      ready: restored,
       departedOwners,
       markDeparted,
       reinstateOwner,
@@ -353,25 +200,20 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
       setAutoHandoff,
       integrations,
       updateIntegration,
-      settings,
-      updateSettings,
-      flags,
-      setFlag,
-      today,
-      outbox,
-      appendOutbox,
-      markTokenUsed,
-      events,
-      logEvent,
-      addedContracts,
-      addContracts,
-      resetDemo,
     }),
     [
-      restored, resolutions, assignOwner, assignDecider, confirmDecision, setTerms, setLeadTimeOverride, acknowledge, snooze,
-      recordOutcome, setInactive, toggleTask, departedOwners, markDeparted, reinstateOwner, autoHandoff, integrations,
-      updateIntegration, settings, updateSettings, flags, setFlag, today, outbox, appendOutbox, markTokenUsed,
-      events, logEvent, addedContracts, addContracts, resetDemo,
+      resolutions,
+      assignOwner,
+      confirmDecision,
+      usedTokens,
+      markTokenUsed,
+      restored,
+      departedOwners,
+      markDeparted,
+      reinstateOwner,
+      autoHandoff,
+      integrations,
+      updateIntegration,
     ],
   );
 
@@ -384,10 +226,4 @@ export function useRenewalRuntime() {
     throw new Error("useRenewalRuntime must be used within a RenewalRuntimeProvider");
   }
   return context;
-}
-
-/** Settings, flags and "today" — everything the decision engine reads besides the contract itself. */
-export function useRenewalConfig() {
-  const { settings, flags, today } = useRenewalRuntime();
-  return { settings, flags, today, decisionsEnabled: flags.renewalDecisions };
 }

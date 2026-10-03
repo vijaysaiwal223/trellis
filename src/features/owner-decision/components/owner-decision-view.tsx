@@ -3,15 +3,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Text, clx } from "@medusajs/ui";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { people } from "@/config/people";
 import { actionLabel, type DecisionAction, type RenewalDetail } from "@/features/renewal-detail";
 import { renewals, useAssessedRenewals, windowHeadline } from "@/features/renewal-risk";
-import { validateToken } from "@/features/renewal-risk/escalation";
-import { followUpTasksFor } from "@/features/renewal-risk/follow-up";
+import { validateToken } from "@/features/renewal-risk/nudge-link";
 import { isDecisionClosed, useRenewalRuntime, type DecisionRecord } from "@/lib/renewal-runtime-state";
 import { toVendorSlug } from "@/lib/vendor-slug";
 
@@ -19,10 +18,8 @@ type OwnerAction = DecisionAction | "Not mine";
 
 const actionCopy: Record<OwnerAction, string> = {
   Renew: "Keep it as-is — renew on the current terms.",
-  Renegotiate: "Renew only if the price or terms improve.",
   "Right-size": "Renew, but adjust the seat count first.",
   Cancel: "Let it lapse — cancel before the notice deadline.",
-  Escalate: "I can't decide — hand it to the finance lead.",
   "Not mine": "I don't own this — someone else does.",
 };
 
@@ -31,14 +28,12 @@ const actionCopy: Record<OwnerAction, string> = {
 // three paths that actually apply to a missed window; "Not mine" is
 // deadline-independent, so it's left out and falls back to the normal copy.
 const recoveryLabel: Partial<Record<OwnerAction, string>> = {
-  Renegotiate: "Negotiate terms",
   "Right-size": "Negotiate downsize",
   Cancel: "Request goodwill cancellation",
   Renew: "Accept current renewal",
 };
 const recoveryActionCopy: Partial<Record<OwnerAction, string>> = {
   Renew: "Keep the current terms and confirm the outcome later.",
-  Renegotiate: "Ask for better terms now that the window's closed.",
   "Right-size": "Ask for a smaller plan now that the window's closed.",
   Cancel: "Ask the vendor to cancel anyway — not guaranteed, but worth asking.",
 };
@@ -54,10 +49,8 @@ function displayLabel(action: OwnerAction | null | undefined, isPastCancelBy: bo
 // remains pending until an outcome is confirmed in Trellis.
 const postSubmitCopy: Partial<Record<DecisionAction, string>> = {
   Renew: "Decision recorded. Confirm the renewal outcome in Trellis when the terms are known.",
-  Renegotiate: "Decision recorded. Negotiate with the vendor and confirm the new terms before closing this risk.",
   "Right-size": "Decision recorded. Negotiate with the vendor and confirm the new terms before closing this risk.",
   Cancel: "Decision recorded. Contact the vendor; cancellation is pending their confirmation.",
-  Escalate: "Handed to the finance lead. They still need to make the final call.",
 };
 
 export function OwnerDecisionView({
@@ -71,8 +64,7 @@ export function OwnerDecisionView({
   token?: string;
 }) {
   const slug = toVendorSlug(detail.vendor);
-  const { ready, resolutions, confirmDecision, assignOwner, assignDecider, flags, outbox, acknowledge, markTokenUsed, today } = useRenewalRuntime();
-  const decisionsOn = flags.renewalDecisions;
+  const { ready, resolutions, confirmDecision, assignOwner, usedTokens, markTokenUsed } = useRenewalRuntime();
   const resolution = resolutions[slug];
   const assessed = useAssessedRenewals(renewals);
   const row = assessed.find((entry) => entry.slug === slug)?.row;
@@ -89,49 +81,32 @@ export function OwnerDecisionView({
 
   const alreadyResolved = !submitted && !!resolution?.decision && !resolution.decision.draft;
 
-  // One-click links are credentials: with Renewal Decisions on, only a link that
-  // was actually issued for this contract, and not yet used, may record anything.
-  const access = decisionsOn ? validateToken(token, slug, outbox) : null;
-  const linkEntry = access?.status === "valid" ? access.entry : null;
-  const acked = useRef(false);
-  useEffect(() => {
-    // Opening a valid link counts as seeing the reminder.
-    if (ready && linkEntry && !acked.current) {
-      acked.current = true;
-      acknowledge(slug, linkEntry.step);
-    }
-  }, [ready, linkEntry, acknowledge, slug]);
+  // One-click links are credentials: only a link that was issued for this
+  // contract, and not yet used, may record anything.
+  const access = validateToken(token, slug, usedTokens);
 
   const submit = () => {
-    if (!action || !row) return;
-    if (decisionsOn && !linkEntry) return;
+    if (!action || !row || access.status !== "valid") return;
     if (action === "Not mine") {
-      if (decisionsOn) assignDecider(slug, reassignTo);
-      else assignOwner(slug, reassignTo);
+      assignOwner(slug, reassignTo);
     } else {
-      const actor = linkEntry?.recipient ?? row.owner ?? undefined;
       confirmDecision(slug, {
         action,
         note: note.trim(),
-        ownerName: actor,
-        decidedBy: decisionsOn ? actor : undefined,
-        cycle: decisionsOn ? row.renewalDate : undefined,
-        termsSnapshot: decisionsOn ? row.termsSnapshot : undefined,
-        tasks: decisionsOn ? followUpTasksFor(action, row, today) : undefined,
+        ownerName: row.owner ?? undefined,
         targetOutcome: action === "Right-size" ? `Reduce to ${seats} seats` : undefined,
       });
     }
-    if (token && linkEntry) markTokenUsed(token);
+    if (token) markTokenUsed(token);
     setSubmitted(true);
   };
 
-  if (decisionsOn && !submitted) {
+  if (!submitted) {
     if (!ready) return null;
-    if (access && access.status !== "valid") {
+    if (access.status !== "valid") {
       const reason: Record<string, string> = {
         missing: "This page needs the link from a Trellis reminder. Opening it directly doesn't identify who you are.",
         forged: "This link has been altered, so it can't be trusted.",
-        unknown: "Trellis has no record of sending this link.",
         "wrong-contract": "This link was issued for a different renewal.",
         used: "This link has already been used to record a response. Open the renewal in Trellis to review or change it.",
       };
@@ -164,11 +139,7 @@ export function OwnerDecisionView({
       <div className="flex w-full max-w-[480px] flex-col gap-4">
         <Alert
           tone={
-            recordedAction === "Not mine" || closed
-              ? "success"
-              : recordedAction === "Escalate"
-                ? "danger"
-                : "warning"
+            recordedAction === "Not mine" || closed ? "success" : "warning"
           }
           title={
             recordedAction === "Not mine"
@@ -210,7 +181,7 @@ export function OwnerDecisionView({
         <span className="font-medium">{detail.vendor}</span> renews {renewalDate ?? "soon"} for{" "}
         <span className="font-medium">{row.contractAmount}</span>. You must cancel by{" "}
         <span className="font-medium">{row.cancelBy}</span> ({windowHeadline(row.daysToCancelBy).toLowerCase()}).{" "}
-        {decisionsOn ? <>Please decide by <span className="font-medium">{row.decideBy}</span>. </> : null}
+        Please decide by <span className="font-medium">{row.decideBy}</span>.{" "}
         {detail.plan.activeSeats} of {detail.plan.purchasedSeats} seats active ({detail.plan.usagePercent}%)
         {yoy ? `, price ${yoy} YoY` : ""}.
       </Text>
@@ -222,7 +193,7 @@ export function OwnerDecisionView({
       ) : null}
 
       <div className="grid grid-cols-2 gap-2">
-        {(["Renew", "Renegotiate", "Right-size", "Cancel", "Escalate", "Not mine"] as const).map((option) => (
+        {(["Renew", "Right-size", "Cancel", "Not mine"] as const).map((option) => (
           <button
             key={option}
             type="button"

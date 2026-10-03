@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
 import { genericRenewalDetails, RenewalDetailView, renewalDetails } from "@/features/renewal-detail";
-import { AddedContractView } from "@/features/renewal-detail/components/added-contract-view";
 
 type PageParams = { vendor: string };
 
@@ -30,10 +30,12 @@ export default async function RenewalDetailPage({
   const requestedTask = (await searchParams).task;
   const detail = renewalDetails[vendor] ?? genericRenewalDetails[vendor];
 
-  const initialTask = requestedTask === "assign" || requestedTask === "decision" || requestedTask === "follow-up" || requestedTask === "terms"
+  if (!detail) {
+    notFound();
+  }
+
+  const initialTask = requestedTask === "assign" || requestedTask === "decision" || requestedTask === "follow-up"
     ? requestedTask
     : null;
-  // Not a built-in fixture: it may be a contract imported in this browser.
-  if (!detail) return <AddedContractView slug={vendor} initialTask={initialTask} />;
   return <RenewalDetailView key={`${vendor}-${initialTask ?? "view"}`} detail={detail} initialTask={initialTask} />;
 }

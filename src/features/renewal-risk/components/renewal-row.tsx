@@ -29,11 +29,9 @@ function usageBarColor(percent: number) {
 
 type RenewalRowProps = {
   row: Renewal;
-  /** Show the decide-by column (Renewal Decisions on). */
-  showDecideBy?: boolean;
 };
 
-export function RenewalRow({ row: baseRow, showDecideBy = false }: RenewalRowProps) {
+export function RenewalRow({ row: baseRow }: RenewalRowProps) {
   const { resolutions } = useRenewalRuntime();
   const resolution = resolutions[baseRow.id];
   const { row, action, href, isUrgent, task } = resolveRenewalDisplay(baseRow, resolution);
@@ -58,15 +56,6 @@ export function RenewalRow({ row: baseRow, showDecideBy = false }: RenewalRowPro
       <Table.Cell>
         <RiskBadge risk={row.risk} />
       </Table.Cell>
-      {showDecideBy ? (
-        <Table.Cell>
-          <StackedCellText
-            primary={`${row.decideBy}${row.decideByShifted ? " *" : ""}`}
-            secondary={row.daysToDecideBy < 0 ? `${-row.daysToDecideBy}d overdue` : row.daysToDecideBy === 0 ? "today" : `in ${row.daysToDecideBy}d`}
-            secondaryClassName={row.daysToDecideBy < 0 ? "text-ui-fg-error" : "text-ui-fg-subtle"}
-          />
-        </Table.Cell>
-      ) : null}
       <Table.Cell>
         <StackedCellText
           primary={row.cancelBy}

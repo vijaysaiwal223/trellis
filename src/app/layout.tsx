@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 
-import { OutboxTicker } from "@/components/layout/outbox-ticker";
 import { RenewalRuntimeProvider } from "@/lib/renewal-runtime-state";
 
 import "./globals.css";
@@ -64,10 +63,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${circular.className} ${circular.variable} ${switzer.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-ui-bg-subtle text-ui-fg-base tracking-[0]">
-        <RenewalRuntimeProvider>
-          <OutboxTicker />
-          {children}
-        </RenewalRuntimeProvider>
+        <RenewalRuntimeProvider>{children}</RenewalRuntimeProvider>
       </body>
     </html>
   );

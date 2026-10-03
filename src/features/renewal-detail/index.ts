@@ -2,5 +2,5 @@
 export { RenewalDetailView } from "./components/renewal-detail-view";
 export { genericRenewalDetails } from "./generic-detail";
 export { renewalDetails } from "./mock-data";
-export { actionLabel, decisionOutcomes } from "./types";
+export { actionLabel } from "./types";
 export type { DecisionAction, RenewalDetail } from "./types";

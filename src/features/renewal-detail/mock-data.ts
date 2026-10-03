@@ -187,7 +187,7 @@ export const renewalDetails: Record<string, RenewalDetail> = {
     contactDetails: [
       { label: "Annual contract", value: "$96,000" },
       { label: "Renewal type", value: "Manual" },
-      { label: "Notice period", value: "0 days" },
+      { label: "Notice period", value: "30 days" },
       { label: "YoY price change", value: "+1%" },
     ],
     paymentHistory: [
@@ -257,7 +257,7 @@ export const renewalDetails: Record<string, RenewalDetail> = {
     contactDetails: [
       { label: "Annual contract", value: "$96,000" },
       { label: "Renewal type", value: "Month-to-month" },
-      { label: "Notice period", value: "0 days" },
+      { label: "Notice period", value: "30 days" },
       { label: "YoY price change", value: "+9%" },
     ],
     paymentHistory: [
@@ -327,7 +327,7 @@ export const renewalDetails: Record<string, RenewalDetail> = {
     contactDetails: [
       { label: "Annual contract", value: "$96,000" },
       { label: "Renewal type", value: "Month-to-month" },
-      { label: "Notice period", value: "0 days" },
+      { label: "Notice period", value: "30 days" },
       { label: "YoY price change", value: "+6%" },
     ],
     paymentHistory: [

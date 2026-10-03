@@ -6,7 +6,6 @@ import {
   RiCheckboxCircleLine,
   RiCloseCircleLine,
   RiCloseLine,
-  RiExchangeLine,
   RiTimeLine,
   type RemixiconComponentType,
 } from "@remixicon/react";
@@ -15,10 +14,9 @@ import { useEffect, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { teamOf } from "@/config/people";
-import { addDays, type ISODate } from "@/features/renewal-risk/deadlines";
-import type { TermsSnapshot } from "@/features/renewal-risk/decision-model";
-import { stamp } from "@/lib/clock";
-import { isDecisionClosed, useRenewalConfig, type DecisionEvent, type DecisionRecord } from "@/lib/renewal-runtime-state";
+import { addDays, calendarDateIn } from "@/features/renewal-risk/deadlines";
+import { now, stamp } from "@/lib/clock";
+import { isDecisionClosed, type DecisionEvent, type DecisionRecord } from "@/lib/renewal-runtime-state";
 
 import { actionLabel, type DecisionAction, type RenewalDetail } from "../types";
 
@@ -26,10 +24,8 @@ const NOTE_LIMIT = 500;
 
 const renewalStatusOptions: Record<DecisionAction, string[]> = {
   Renew: ["Not started", "Awaiting renewal confirmation"],
-  Renegotiate: ["Not started", "In negotiation", "Pending approval"],
   "Right-size": ["Not started", "In negotiation", "Pending approval"],
   Cancel: ["Not started", "Waiting for vendor"],
-  Escalate: ["Not started", "Waiting for finance"],
 };
 
 const decisionDetailsCopy: Record<DecisionAction, {
@@ -44,12 +40,6 @@ const decisionDetailsCopy: Record<DecisionAction, {
     targetPlaceholder: "e.g. Keep 420 seats at current terms",
     followUpLabel: "Confirm renewal by",
   },
-  Renegotiate: {
-    guidance: "Say which terms you want to change (price, term, notice) and track the vendor conversation.",
-    targetLabel: "Terms to negotiate (required)",
-    targetPlaceholder: "e.g. Hold price flat and cut the notice period to 30 days",
-    followUpLabel: "Follow up on negotiation by",
-  },
   "Right-size": {
     guidance: "Define the smaller plan you want, then track the vendor negotiation.",
     targetLabel: "Desired contract change (required)",
@@ -61,12 +51,6 @@ const decisionDetailsCopy: Record<DecisionAction, {
     targetLabel: "Cancellation request (optional)",
     targetPlaceholder: "e.g. Request written cancellation confirmation",
     followUpLabel: "Follow up with vendor by",
-  },
-  Escalate: {
-    guidance: "State what finance needs to decide and when to follow up.",
-    targetLabel: "Decision needed from finance (optional)",
-    targetPlaceholder: "e.g. Approve a revised renewal budget",
-    followUpLabel: "Follow up with finance by",
   },
 };
 
@@ -94,15 +78,10 @@ type DecisionOption = {
 
 const decisionOptions: DecisionOption[] = [
   { action: "Renew", label: "Renew at current terms", description: "Keep the existing contract terms", icon: RiCheckboxCircleLine, iconClassName: "text-ui-tag-green-icon" },
-  { action: "Renegotiate", label: "Renegotiate", description: "Change price or terms", icon: RiExchangeLine, iconClassName: "text-ui-fg-interactive" },
   { action: "Right-size", label: "Downsize", description: "Renew with fewer seats", icon: RiArrowDownLine, iconClassName: "text-ui-tag-orange-icon" },
   { action: "Cancel", label: "Cancel", description: "Do not renew", icon: RiCloseCircleLine, iconClassName: "text-ui-fg-error" },
 ];
 
-// A hand-off, not an outcome: someone who cannot decide passes it to the finance lead.
-const escalateOption: DecisionOption = {
-  action: "Escalate", label: "Needs review", description: "Hand off to the finance lead", icon: RiTimeLine, iconClassName: "text-ui-fg-muted",
-};
 
 // Frame 8b — once cancel-by has passed, "Cancel as planned" and "renew as
 // planned" aren't real options anymore (the window to do either cleanly is
@@ -110,13 +89,6 @@ const escalateOption: DecisionOption = {
 // Each still maps to an existing DecisionAction so closure/exposure logic
 // (isDecisionClosed) doesn't need special-casing for the recovery path.
 const recoveryOptions: DecisionOption[] = [
-  {
-    action: "Renegotiate",
-    label: "Negotiate terms",
-    description: "Ask for better terms now that the window's closed",
-    icon: RiExchangeLine,
-    iconClassName: "text-ui-fg-interactive",
-  },
   {
     action: "Right-size",
     label: "Negotiate downsize",
@@ -166,8 +138,8 @@ type RecommendationCardProps = {
   daysToCancelBy?: number;
   /** Decide-by label, shown with the evidence. */
   decideBy?: string;
-  /** Stamped onto the record so a later change to the terms or cycle can re-open it. */
-  recordContext?: { cycle: ISODate; termsSnapshot: TermsSnapshot };
+  /** Opens Bruno for someone who isn't sure which way to go. */
+  onAskBruno?: () => void;
   suggestedAction?: DecisionAction;
   suggestedReasoning?: string;
 };
@@ -183,11 +155,11 @@ export function RecommendationCard({
   isPastCancelBy,
   daysToCancelBy,
   decideBy,
-  recordContext,
+  onAskBruno,
   suggestedAction,
   suggestedReasoning,
 }: RecommendationCardProps) {
-  const { today } = useRenewalConfig();
+  const today = calendarDateIn(now(), "UTC");
   const isFinal = !!decision && !decision.draft;
   const isClosed = isFinal && isDecisionClosed(decision!);
   const [editing, setEditing] = useState(false);
@@ -198,19 +170,15 @@ export function RecommendationCard({
   // Which set of options is showing right now — used both to render the
   // picker and to look up the right label for an already-recorded decision.
   const options = isPastCancelBy ? recoveryOptions : decisionOptions;
-  const allOptions = [...options, escalateOption];
   const pendingFollowUp: Partial<Record<DecisionAction, string>> = {
     Renew: "Still pending: confirm the renewal outcome before closing this risk.",
     Cancel: isPastCancelBy
       ? "Still pending: the vendor has to agree to this — notice has already passed, so it's goodwill, not a guarantee."
       : "Still pending: confirm the cancellation with the vendor before the cancel-by date.",
-    Renegotiate: "Still pending: agree on new terms with the vendor, then mark the outcome confirmed.",
     "Right-size": "Still pending: agree on the smaller plan with the vendor, then mark the outcome confirmed.",
-    Escalate: "Still pending: finance needs to make the final call. Edit this record when a final decision is made.",
   };
   const confirmationLabel: Partial<Record<DecisionAction, string>> = {
     Renew: "Mark renewal confirmed",
-    Renegotiate: "Mark new terms confirmed",
     "Right-size": "Mark new terms confirmed",
     Cancel: "Mark vendor cancellation confirmed",
   };
@@ -299,9 +267,6 @@ export function RecommendationCard({
     action: selectedAction ?? "Renew",
     note: displayedNote.trim(),
     ownerName: owner || undefined,
-    decidedBy: owner || undefined,
-    cycle: recordContext?.cycle ?? decision?.cycle,
-    termsSnapshot: recordContext?.termsSnapshot ?? decision?.termsSnapshot,
     targetOutcome: targetOutcome.trim() || undefined,
     renewalStatus,
     followUpBy: followUpBy ? dateOnly(followUpBy) : undefined,
@@ -313,8 +278,8 @@ export function RecommendationCard({
     const lastSafeFollowUp = addDays(today, daysToCancelBy ?? 0);
     const nextErrors = {
       action: !selectedAction ? "Choose a decision before recording it." : undefined,
-      owner: !owner || !eligibleOwners.includes(owner) ? "Choose an active decider." : undefined,
-      targetOutcome: (selectedAction === "Right-size" || selectedAction === "Renegotiate") && !targetOutcome.trim()
+      owner: !owner || !eligibleOwners.includes(owner) ? "Choose an active decision owner." : undefined,
+      targetOutcome: selectedAction === "Right-size" && !targetOutcome.trim()
         ? "Describe the terms you want to negotiate." : undefined,
       followUpBy: !followUpBy ? "Set a follow-up date for this pending decision."
         : dateOnly(followUpBy) < today ? "Choose today or a future date."
@@ -359,17 +324,17 @@ export function RecommendationCard({
       <div className="flex w-full flex-col gap-4 overflow-y-auto p-4">
         {isFinal && !editing ? (
           <>
-            <Alert tone={isClosed ? "success" : decision!.action === "Escalate" ? "danger" : "warning"}>
+            <Alert tone={isClosed ? "success" : "warning"}>
               <Text as="span" className="text-[14px] font-medium leading-5 text-ui-fg-base">
                 {isClosed ? "Outcome confirmed" : "Decision recorded — awaiting outcome"} —{" "}
-                {allOptions.find((o) => o.action === decision!.action)?.label ?? actionLabel(decision!.action)}
+                {options.find((o) => o.action === decision!.action)?.label ?? actionLabel(decision!.action)}
               </Text>
               <Text as="span" className="text-[12px] leading-4 text-ui-fg-base">
                 {isClosed ? "A team member marked the outcome confirmed in Trellis." : pendingFollowUp[decision!.action]}
               </Text>
             </Alert>
             <div className="grid grid-cols-2 gap-3 rounded-xl border border-ui-border-base bg-ui-bg-subtle p-3 text-[13px]">
-              <Stat label="Decided by" value={decision!.decidedBy ?? decision!.ownerName ?? "Unassigned"} />
+              <Stat label="Decision owner" value={decision!.ownerName ?? "Unassigned"} />
               <Stat label="Progress" value={isClosed ? "Confirmed" : decision!.renewalStatus ?? "Not started"} />
               {decision!.targetOutcome ? <Stat label="Target outcome" value={decision!.targetOutcome} /> : null}
               {decision!.followUpBy ? <Stat label="Follow up by" value={decision!.followUpBy} /> : null}
@@ -428,7 +393,7 @@ export function RecommendationCard({
                 {decideBy ? <Stat label="Decide by" value={decideBy} /> : null}
                 {cancelBy ? <Stat label="Cancel-by" value={cancelBy} /> : null}
                 {renewalType ? <Stat label="Renewal type" value={renewalType} /> : null}
-                <Stat label="Decider" value={currentOwnerName ?? "Unassigned"} />
+                <Stat label="Owner" value={currentOwnerName ?? "Unassigned"} />
               </div>
             </div>
 
@@ -477,26 +442,17 @@ export function RecommendationCard({
                   );
                 })}
               </div>
-              <button
-                type="button"
-                aria-pressed={selectedAction === "Escalate"}
-                onClick={() => {
-                  setAction("Escalate");
-                  setRenewalStatus("Not started");
-                  setDirty(true);
-                  setErrors((previous) => ({ ...previous, action: undefined }));
-                }}
-                className={
-                  "mt-2 flex w-full items-center gap-2 rounded-[8px] border px-3 py-2 text-left text-[13px] transition-colors " +
-                  (selectedAction === "Escalate"
-                    ? "border-ui-bg-interactive bg-ui-bg-interactive-soft"
-                    : "border-dashed border-ui-border-strong bg-ui-bg-base hover:bg-ui-bg-subtle")
-                }
-              >
-                <RiTimeLine className="size-4 text-ui-fg-muted" />
-                <span className="font-medium text-ui-fg-base">Can&apos;t decide?</span>
-                <span className="text-ui-fg-subtle">Hand it to the finance lead. This is a hand-off, not an outcome.</span>
-              </button>
+              {onAskBruno ? (
+                <button
+                  type="button"
+                  onClick={onAskBruno}
+                  className="mt-2 flex w-full items-center gap-2 rounded-[8px] border border-dashed border-ui-border-strong bg-ui-bg-base px-3 py-2 text-left text-[13px] transition-colors hover:bg-ui-bg-subtle"
+                >
+                  <RiTimeLine className="size-4 text-ui-fg-muted" />
+                  <span className="font-medium text-ui-fg-base">Not sure?</span>
+                  <span className="text-ui-fg-subtle">Ask Bruno for a recommendation.</span>
+                </button>
+              ) : null}
               {errors.action ? <Text as="p" role="alert" className="mt-2 text-[12px] text-ui-fg-error">{errors.action}</Text> : null}
             </div>
 
@@ -513,7 +469,7 @@ export function RecommendationCard({
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-1">
                   <Text as="span" className="text-[12px] leading-4 text-ui-fg-subtle">
-                    Decider (required)
+                    Decision owner (required)
                   </Text>
                   <select
                     value={eligibleOwners.includes(owner) ? owner : ""}
@@ -525,7 +481,7 @@ export function RecommendationCard({
                     aria-invalid={Boolean(errors.owner)}
                     className="h-9 w-full rounded-[6px] border border-ui-border-base bg-ui-bg-base px-2 text-[14px] text-ui-fg-base outline-none"
                   >
-                    <option value="" disabled>Select an active decider</option>
+                    <option value="" disabled>Select an active owner</option>
                     {eligibleOwners.map((name) => (
                       <option key={name} value={name}>
                         {name}
@@ -617,7 +573,7 @@ export function RecommendationCard({
                   aria-labelledby="decision-follow-up-label"
                 />
                 {errors.followUpBy ? <Text as="span" role="alert" className="text-[12px] text-ui-fg-error">{errors.followUpBy}</Text> : null}
-                <Text as="span" className="text-[12px] leading-4 text-ui-fg-muted">Demo timeline as of {today}. Reminders are simulated in this prototype, not delivered.</Text>
+                <Text as="span" className="text-[12px] leading-4 text-ui-fg-muted">Demo timeline as of Sep 26, 2026. No reminder is sent.</Text>
               </label>
             </div> : (
               <Text as="p" className="text-[13px] leading-5 text-ui-fg-subtle">Choose a decision to complete its details.</Text>

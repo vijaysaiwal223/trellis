@@ -1,15 +1,20 @@
 "use client";
 
 import { navItems } from "@/config/navigation";
-import { renewals, useAssessedRenewals } from "@/features/renewal-risk";
+import { renewals } from "@/features/renewal-risk";
+import { isDecisionClosed, useRenewalRuntime } from "@/lib/renewal-runtime-state";
+import { toVendorSlug } from "@/lib/vendor-slug";
 
 import { NavButton } from "./nav-button";
 
 export function Sidebar() {
-  // A draft, a decision re-opened by changed terms, or one still awaiting
-  // real-world follow-through (cancellation, negotiation, escalation) still
-  // needs attention here.
-  const pendingCount = useAssessedRenewals(renewals).filter((entry) => !entry.resolved).length;
+  const { resolutions } = useRenewalRuntime();
+  // A draft, or a decision still awaiting real-world follow-through
+  // (cancellation, negotiation, escalation), still needs attention here.
+  const pendingCount = renewals.filter((row) => {
+    const decision = resolutions[toVendorSlug(row.vendor)]?.decision;
+    return !decision || !isDecisionClosed(decision);
+  }).length;
 
   return (
     <aside className="-mr-px flex w-[240px] shrink-0 flex-col overflow-hidden rounded-[12px] border border-ui-border-base bg-ui-bg-base">

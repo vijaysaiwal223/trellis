@@ -17,3 +17,6 @@ export const riskColor: Record<Risk, BadgeColor> = {
   Medium: "blue",
   High: "orange",
 };
+
+/** The internal decision target sits this many days before the notice deadline. */
+export const DECISION_BUFFER_DAYS = 14;

@@ -19,18 +19,14 @@ export type ChecklistItem = {
 };
 
 /**
- * The four decision outcomes are Renew, Renegotiate, Downsize and Cancel.
- * "Right-size" is the stored value for Downsize (kept so records saved before
- * the split still load); "Escalate" is a hand-off to the finance lead, not an
- * outcome.
+ * The three decisions an owner can make. "Right-size" is the stored value for
+ * Downsize (kept so records saved before the rename still load).
  */
-export type DecisionAction = "Renew" | "Renegotiate" | "Right-size" | "Cancel" | "Escalate";
-
-export const decisionOutcomes = ["Renew", "Renegotiate", "Right-size", "Cancel"] as const satisfies readonly DecisionAction[];
+export type DecisionAction = "Renew" | "Right-size" | "Cancel";
 
 /** What a user sees for a stored action. */
-export function actionLabel(action: DecisionAction): string {
-  return action === "Right-size" ? "Downsize" : action === "Escalate" ? "Needs review" : action;
+export function actionLabel(action: string): string {
+  return action === "Right-size" ? "Downsize" : action;
 }
 
 export type DetailRow = {
