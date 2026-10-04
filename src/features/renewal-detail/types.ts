@@ -1,6 +1,5 @@
-import type { AlertTone } from "@/components/ui/alert";
 
-export type { AlertTone };
+export type AlertTone = "neutral" | "info" | "success" | "warning" | "danger";
 
 export type TimelineTone = "neutral" | "warning" | "danger";
 

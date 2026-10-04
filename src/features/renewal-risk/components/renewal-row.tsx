@@ -6,11 +6,11 @@ import { useRenewalRuntime, type RenewalResolution } from "@/lib/renewal-runtime
 
 import { actionLabel } from "@/features/renewal-detail/types";
 
-import { useSettings } from "@/lib/settings-state";
 
 import { resolveRenewalDisplay } from "../resolve-display";
 import { renewalStage, stageLabel, type RenewalStage } from "../stage";
-import type { Renewal } from "../types";
+import type { BadgeColor, Renewal } from "../types";
+import { Badge, Button } from "@medusajs/ui";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -44,9 +44,7 @@ function statusNote(
   row: Renewal,
   resolution: RenewalResolution | undefined,
   fallback: string,
-  escalated: boolean,
 ) {
-  if (stage === "awaiting-owner" && escalated) return "Escalated: lead decides alone";
   switch (stage) {
     case "locked-in":
       return "Deadline passed";
@@ -57,7 +55,18 @@ function statusNote(
     case "awaiting-owner":
       return resolution?.ownerRequest ? `Asked ${dayMonth(resolution.ownerRequest.sentAt.slice(0, 10))}` : "Not asked yet";
     case "recommendation-in":
-      return resolution?.recommendation ? actionLabel(resolution.recommendation.action) : fallback;
+      return resolution?.recommendation
+        ? (resolution.recommendation.targetOutcome ?? actionLabel(resolution.recommendation.action))
+        : fallback;
+    case "ready-for-notice": {
+      const decidedOn = resolution?.decision?.recordedAt;
+      return decidedOn ? `Decided ${dayMonth(decidedOn.slice(0, 10))}` : fallback;
+    }
+    case "awaiting-outcome": {
+      // Notice is out; the renewal stays open until the vendor's outcome is confirmed.
+      const sent = resolution?.decision?.noticeSentAt;
+      return sent ? `Notice sent ${dayMonth(sent.slice(0, 10))}` : fallback;
+    }
     case "handled": {
       const decided = resolution?.decision;
       if (!decided) return fallback;
@@ -70,15 +79,14 @@ function statusNote(
   }
 }
 
-// Full class strings so Tailwind can see every token it needs.
-const stageBadge: Record<RenewalStage, string> = {
-  "no-owner": "bg-ui-tag-orange-bg border-ui-tag-orange-border text-ui-tag-orange-text",
-  "awaiting-owner": "bg-ui-tag-neutral-bg border-ui-tag-neutral-border text-ui-tag-neutral-text",
-  "recommendation-in": "bg-ui-tag-blue-bg border-ui-tag-blue-border text-ui-tag-blue-text",
-  "locked-in": "bg-ui-tag-red-bg border-ui-tag-red-border text-ui-tag-red-text",
-  "ready-for-notice": "bg-ui-tag-blue-bg border-ui-tag-blue-border text-ui-tag-blue-text",
-  "awaiting-outcome": "bg-ui-tag-blue-bg border-ui-tag-blue-border text-ui-tag-blue-text",
-  handled: "bg-ui-tag-green-bg border-ui-tag-green-border text-ui-tag-green-text",
+const stageColor: Record<RenewalStage, BadgeColor> = {
+  "no-owner": "orange",
+  "awaiting-owner": "grey",
+  "recommendation-in": "blue",
+  "locked-in": "red",
+  "ready-for-notice": "blue",
+  "awaiting-outcome": "blue",
+  handled: "green",
 };
 
 /** Seat usage as a ring. The arc is drawn at the same radius and stroke as the design's gauge. */
@@ -111,9 +119,6 @@ function SeatGauge({ percent }: { percent: number }) {
 
 const cell = "flex h-[64px] shrink-0 items-center overflow-clip border-b border-solid border-[#e4e4e7] px-[12px] py-[10px]";
 
-const actionButton =
-  "flex h-[32px] items-center justify-center rounded-[6px] bg-white px-[10px] text-[14px] font-medium leading-[20px] tracking-[-0.105px] whitespace-nowrap text-[#18181b] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)] hover:bg-[#f4f4f5]";
-
 export function RenewalRow({
   row: baseRow,
   selected = false,
@@ -128,11 +133,9 @@ export function RenewalRow({
   onOpen?: () => void;
 }) {
   const { resolutions } = useRenewalRuntime();
-  const { rules } = useSettings();
   const resolution = resolutions[baseRow.id];
   const { row, href, task } = resolveRenewalDisplay(baseRow, resolution);
   const stage = renewalStage(row, resolution);
-  const escalated = stage === "awaiting-owner" && row.daysToDecideBy < -rules.escalateAfterDays;
   const usagePercent = parseInt(row.usage, 10) || 0;
   const yoy = row.yoyPercent;
   const decideLate = row.daysToDecideBy < 0;
@@ -165,7 +168,7 @@ export function RenewalRow({
       <div className={`${cell} w-[200px] text-[14px] leading-[20px] tracking-[-0.105px] text-[#18181b]`}>
         <span className="flex flex-col whitespace-nowrap">
           <span>{dayMonthYear(row.renewalDate)}</span>
-          <span className="text-[#71717a]">{`${row.contractType} • ${row.noticeDays}-day notice`}</span>
+          <span className="text-[#71717a]">{`${row.contractType} · ${row.noticeDays}-day notice`}</span>
         </span>
       </div>
 
@@ -207,29 +210,27 @@ export function RenewalRow({
       </div>
 
       <div className={`${cell} w-[152px] flex-col items-start justify-center gap-[4px] px-[8px]`}>
-        <span
-          className={`flex items-center justify-center rounded-full border-[0.5px] border-solid px-[6.5px] py-[2.5px] text-[12px] font-medium leading-[16px] tracking-[-0.06px] whitespace-nowrap ${stageBadge[stage]}`}
-        >
+        <Badge color={stageColor[stage]} size="xsmall" className="whitespace-nowrap">
           {stageLabel[stage]}
-        </span>
+        </Badge>
         <span className="max-w-full truncate whitespace-nowrap text-[14px] leading-[20px] tracking-[-0.105px] text-[#52525b]">
-          {statusNote(stage, row, resolution, task.due, escalated)}
+          {statusNote(stage, row, resolution, task.due)}
         </span>
       </div>
 
       <div className={`${cell} w-[100px]`}>
         {task.kind === "assign" && onAssign ? (
-          <button type="button" onClick={onAssign} aria-expanded={selected} className={actionButton}>
+          <Button variant="secondary" size="small" onClick={onAssign} aria-expanded={selected}>
             Assign
-          </button>
+          </Button>
         ) : onOpen ? (
-          <button type="button" onClick={onOpen} aria-expanded={selected} className={actionButton}>
+          <Button variant="secondary" size="small" onClick={onOpen} aria-expanded={selected}>
             Open
-          </button>
+          </Button>
         ) : (
-          <Link href={href} className={actionButton}>
-            Open
-          </Link>
+          <Button asChild variant="secondary" size="small">
+            <Link href={href}>Open</Link>
+          </Button>
         )}
       </div>
     </div>

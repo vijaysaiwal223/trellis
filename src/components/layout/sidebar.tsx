@@ -1,6 +1,6 @@
 "use client";
 
-import { adminNavItems, navItems, ownerNavItems } from "@/config/navigation";
+import { navItems, ownerNavItems } from "@/config/navigation";
 import { renewals } from "@/features/renewal-risk";
 import { isDecisionClosed, useRenewalRuntime } from "@/lib/renewal-runtime-state";
 import { toVendorSlug } from "@/lib/vendor-slug";
@@ -12,7 +12,7 @@ import { useProfile } from "./profile-state";
 export function Sidebar() {
   const { resolutions } = useRenewalRuntime();
   const { profile } = useProfile();
-  const items = profile === "owner" ? ownerNavItems : profile === "admin" ? adminNavItems : navItems;
+  const items = profile === "owner" ? ownerNavItems : navItems;
   // A draft, or a decision still awaiting real-world follow-through
   // (cancellation, negotiation, escalation), still needs attention here.
   const pendingCount = renewals.filter((row) => {

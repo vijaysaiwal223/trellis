@@ -1,7 +1,7 @@
 export const renewalTableHeaders = [
   "Vendor",
-  "Decided by",
-  "Renew",
+  "Decide by",
+  "Renews",
   "Annual value",
   "Seats active",
   "YoY",
@@ -10,5 +10,11 @@ export const renewalTableHeaders = [
   "Action",
 ];
 
-/** The internal decision target sits this many days before the notice deadline. */
-export const DECISION_BUFFER_DAYS = 14;
+/**
+ * Decide-by is the last day to change the contract: cancel-by itself, with no
+ * internal buffer. The queue is sorted by this date.
+ */
+export const DECISION_BUFFER_DAYS = 0;
+
+/** The owner is asked for a recommendation this many days before cancel-by. */
+export const ASK_OWNER_DAYS_BEFORE = 2;

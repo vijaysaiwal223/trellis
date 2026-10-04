@@ -7,13 +7,12 @@ import { renewals } from "./mock-data";
 import { renewalStage } from "./stage";
 
 const open = renewals.find((seed) => seed.owner !== null && seed.vendor !== "Gong")!;
-const openRow = assessRenewal(open, open.owner ?? undefined, []);
+const openRow = assessRenewal(open, open.owner ?? undefined);
 const unowned = assessRenewal(
-  renewals.find((seed) => seed.owner === null && assessRenewal(seed, undefined, []).daysToCancelBy >= 0)!,
+  renewals.find((seed) => seed.owner === null && assessRenewal(seed, undefined).daysToCancelBy >= 0)!,
   undefined,
-  [],
 );
-const gong = assessRenewal(renewals.find((seed) => seed.vendor === "Gong")!, undefined, []);
+const gong = assessRenewal(renewals.find((seed) => seed.vendor === "Gong")!, undefined);
 
 const decided = (patch: Partial<DecisionRecord>): RenewalResolution => ({
   decision: { action: "Cancel", note: "", recordedAt: "2026-09-26T12:00:00.000Z", ...patch },

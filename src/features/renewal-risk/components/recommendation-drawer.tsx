@@ -11,6 +11,7 @@ import { daysBetween, type ISODate } from "../deadlines";
 import { useAssessedRenewals } from "../use-assessed-renewals";
 import { renewals } from "../mock-data";
 import type { Renewal } from "../types";
+import { Badge, Button, IconButton, Label, RadioGroup, Textarea } from "@medusajs/ui";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -35,20 +36,6 @@ function Callout({ children }: { children: ReactNode }) {
         {children}
       </div>
     </div>
-  );
-}
-
-function Radio({ selected }: { selected: boolean }) {
-  return (
-    <span
-      className={`relative flex size-[20px] shrink-0 items-center justify-center rounded-full ${
-        selected
-          ? "bg-[#2563eb] shadow-[0px_1px_2px_0px_rgba(30,58,138,0.5),0px_0px_0px_1px_#2563eb]"
-          : "bg-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)]"
-      }`}
-    >
-      {selected ? <span className="size-[6px] rounded-full bg-white shadow-[0px_1px_2px_0px_rgba(30,58,138,0.6)]" /> : null}
-    </span>
   );
 }
 
@@ -150,9 +137,7 @@ export function RecommendationDrawer({ slug, onClose }: { slug: string; onClose:
               <span className="whitespace-nowrap text-[16px] font-medium leading-[20px] tracking-[-0.16px] text-[#18181b]">
                 {row.vendor}
               </span>
-              <span className="flex items-center justify-center rounded-full border-[0.5px] border-solid border-[#93c5fd] bg-[#dbeafe] px-[6.5px] py-[2.5px] text-[12px] font-medium leading-[16px] tracking-[-0.06px] whitespace-nowrap text-[#1e40af]">
-                Recommendation in
-              </span>
+              <Badge color="blue" size="xsmall" className="whitespace-nowrap">Recommendation in</Badge>
             </div>
             <div className="flex gap-[4px] text-[14px] leading-[16px] tracking-[-0.07px] whitespace-nowrap text-[#52525b]">
               <span>{row.subtitle}</span>
@@ -161,14 +146,9 @@ export function RecommendationDrawer({ slug, onClose }: { slug: string; onClose:
             </div>
           </div>
         </div>
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={onClose}
-          className="flex size-[28px] shrink-0 items-center justify-center rounded-[8px] border border-solid border-[#e4e4e7] bg-[#fafafa] text-[#52525b] hover:bg-[#f4f4f5]"
-        >
+        <IconButton variant="transparent" size="small" aria-label="Close" onClick={onClose}>
           <RiCloseLine className="size-4" />
-        </button>
+        </IconButton>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -256,46 +236,37 @@ export function RecommendationDrawer({ slug, onClose }: { slug: string; onClose:
 
         <div className="flex flex-1 flex-col gap-[12px] p-[16px]">
           <span className="text-[14px] font-medium leading-[20px] tracking-[-0.14px] text-[#18181b]">Your decision</span>
-          <div role="radiogroup" aria-label="Your decision" className="flex w-full flex-col gap-[4px]">
-            {choices.map((choice) => {
-              const on = choice.key === selected?.key;
-              return (
-                <button
-                  key={choice.key}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  onClick={() => setChosen(choice.key)}
-                  className="flex w-full items-center gap-[12px] rounded-[12px] border border-solid border-[#e4e4e7] bg-white px-[10px] py-[14px] text-left hover:bg-[#fafafa]"
-                >
-                  <Radio selected={on} />
-                  <span className="text-[14px] font-medium leading-[20px] tracking-[-0.14px] whitespace-nowrap text-[#18181b]">
-                    {choice.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <RadioGroup value={selected?.key} onValueChange={setChosen} aria-label="Your decision" className="flex w-full flex-col gap-[4px]">
+            {choices.map((choice) => (
+              <Label
+                key={choice.key}
+                htmlFor={`decision-${choice.key}`}
+                className="flex w-full cursor-pointer items-center gap-[12px] rounded-[12px] border border-solid border-[#e4e4e7] bg-white px-[10px] py-[14px] hover:bg-[#fafafa]"
+              >
+                <RadioGroup.Item id={`decision-${choice.key}`} value={choice.key} />
+                <span className="whitespace-nowrap">{choice.label}</span>
+              </Label>
+            ))}
+          </RadioGroup>
           <span className="text-[14px] leading-[20px] tracking-[-0.035px] text-[#18181b]">
             {`Any change needs written notice to ${row.vendor} by ${dayMonth(row.decideByISO)}. We’ll walk you through it next.`}
           </span>
           {asking ? (
             <div className="flex flex-col gap-[8px]">
-              <textarea
+              <Textarea
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
                 aria-label={`Question for ${ownerFirst}`}
                 rows={3}
                 placeholder={`What do you want to ask ${ownerFirst}?`}
-                className="w-full resize-none rounded-[6px] bg-white px-[8px] py-[6px] text-[14px] leading-[20px] text-[#18181b] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)] outline-none"
               />
               <div className="flex justify-end gap-[8px]">
-                <button type="button" onClick={() => setAsking(false)} className="h-[32px] rounded-[8px] bg-white px-[10px] text-[14px] font-medium text-[#18181b] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)]">
+                <Button variant="secondary" size="small" onClick={() => setAsking(false)}>
                   Cancel
-                </button>
-                <button type="button" onClick={sendQuestion} disabled={!question.trim()} className="h-[32px] rounded-[8px] bg-[#2876f5] px-[10px] text-[14px] font-medium text-white disabled:opacity-50">
+                </Button>
+                <Button variant="primary" size="small" onClick={sendQuestion} disabled={!question.trim()}>
                   Send question
-                </button>
+                </Button>
               </div>
             </div>
           ) : null}
@@ -303,21 +274,12 @@ export function RecommendationDrawer({ slug, onClose }: { slug: string; onClose:
       </div>
 
       <div className="flex shrink-0 items-center justify-end gap-[12px] border-t border-solid border-[#e4e4e7] bg-[#fafafa] px-[16px] py-[12px]">
-        <button
-          type="button"
-          onClick={() => setAsking((open) => !open)}
-          className="flex h-[32px] items-center justify-center rounded-[8px] bg-white px-[10px] text-[14px] font-medium tracking-[-0.105px] whitespace-nowrap text-[#18181b] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)] hover:bg-[#f4f4f5]"
-        >
+        <Button variant="secondary" size="small" onClick={() => setAsking((open) => !open)}>
           {`Ask ${ownerFirst} a question`}
-        </button>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={!selected}
-          className="flex h-[32px] items-center justify-center rounded-[8px] bg-[#2876f5] px-[10px] text-[14px] font-medium tracking-[-0.105px] whitespace-nowrap text-white shadow-[0px_0px_0px_1px_#0a5ce0] hover:bg-[#1f6be6] disabled:opacity-50"
-        >
+        </Button>
+        <Button variant="primary" size="small" onClick={submit} disabled={!selected}>
           Record decision
-        </button>
+        </Button>
       </div>
     </div>
   );

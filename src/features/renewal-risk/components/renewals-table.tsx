@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@medusajs/ui";
 import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
 
 import { renewalTableHeaders } from "../constants";
@@ -10,7 +10,9 @@ import { matchesMetric, type MetricKey } from "../metrics";
 import type { RenewalSeed } from "../types";
 import { useAssessedRenewals } from "../use-assessed-renewals";
 import { renewalStage, type RenewalStage } from "../stage";
+import { addDays } from "../deadlines";
 import { renewalTask } from "../workflow";
+import { dayMonth } from "@/lib/dates";
 
 import { RenewalRow } from "./renewal-row";
 import { AllClear, type UpcomingRenewal } from "./all-clear";
@@ -49,6 +51,8 @@ const rightAligned = new Set(["Annual value", "YoY"]);
 export function RenewalsTable({ renewals, filterKey, onClearFilter, stageMatch, selectedId, onAssign, onOpen, upcoming = [] }: RenewalsTableProps) {
   const assessed = useAssessedRenewals(renewals);
   const { resolutions } = useRenewalRuntime();
+  // The "Later" window stays collapsed until asked for, as the queue summary reads.
+  const [laterOpen, setLaterOpen] = useState(false);
 
   // Rank the next action, including overdue follow-up after a decision.
   const rows = useMemo(() => {
@@ -124,6 +128,9 @@ export function RenewalsTable({ renewals, filterKey, onClearFilter, stageMatch, 
               const atStake = open.reduce((sum, entry) => sum + entry.row.contractValue, 0);
               const past = group.key === "past";
               const week = group.key === "week";
+              const later = group.key === "later";
+              const earliest = group.entries.reduce((min, entry) => (entry.row.cancelByISO < min ? entry.row.cancelByISO : min), group.entries[0].row.cancelByISO);
+              const vendors = group.entries.map((entry) => entry.row.vendor).join(", ");
               return (
                 <div key={group.key} className="flex w-full flex-col">
                   <div className="flex w-full items-start gap-[12px] border-b border-solid border-[#e4e4e7] bg-[#f4f4f5] px-[12px] py-[10px] text-[14px] leading-[20px] tracking-[-0.07px]">
@@ -133,11 +140,19 @@ export function RenewalsTable({ renewals, filterKey, onClearFilter, stageMatch, 
                       {group.label}
                     </span>
                     <span className="whitespace-nowrap text-[#18181b]">
-                      {open.length} open{handled > 0 ? ` · ${handled} handled` : ""} · {usd.format(atStake)} at stake
-                      {past ? " · renewing regardless" : ""}
+                      {later
+                        ? `${open.length} decision${open.length === 1 ? "" : "s"} after ${dayMonth(addDays(earliest, -1))} · ${vendors}`
+                        : past
+                          ? `${open.length} open · ${usd.format(atStake)} renewing regardless`
+                          : `${open.length} open${handled > 0 ? ` · ${handled} handled` : ""} · ${usd.format(atStake)} at stake`}
                     </span>
+                    {later ? (
+                      <Button variant="transparent" size="small" onClick={() => setLaterOpen((value) => !value)}>
+                        {laterOpen ? "Hide" : "Show"}
+                      </Button>
+                    ) : null}
                   </div>
-                  {renderRows(group.entries)}
+                  {later && !laterOpen ? null : renderRows(group.entries)}
                 </div>
               );
             })

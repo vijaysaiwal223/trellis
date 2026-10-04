@@ -3,7 +3,7 @@
  * instead of `new Date()`, so the demo is pinned to one snapshot day and the
  * date logic can be tested at any instant.
  */
-export const SNAPSHOT_INSTANT = "2026-09-26T12:00:00Z";
+export const SNAPSHOT_INSTANT = "2026-10-05T12:00:00Z";
 
 const LAST_STAMP_KEY = "trellis-clock-last-stamp";
 

@@ -11,6 +11,7 @@ import type { ISODate } from "../deadlines";
 import { useAssessedRenewals } from "../use-assessed-renewals";
 import { renewals } from "../mock-data";
 import type { Renewal } from "../types";
+import { Badge, Button, IconButton, Input, Textarea } from "@medusajs/ui";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -87,13 +88,9 @@ export function HandledDrawer({ slug, onClose }: { slug: string; onClose: () => 
             <div className="flex items-start gap-[4px]">
               <span className="whitespace-nowrap text-[16px] font-medium leading-[20px] tracking-[-0.16px] text-[#18181b]">{row.vendor}</span>
               {decision.confirmedAt ? (
-                <span className="flex items-center justify-center rounded-full border-[0.5px] border-solid border-[#6ee7b7] bg-[#d1fae5] px-[6.5px] py-[2.5px] text-[12px] font-medium leading-[16px] tracking-[-0.06px] whitespace-nowrap text-[#065f46]">
-                  Handled
-                </span>
+                <Badge color="green" size="xsmall" className="whitespace-nowrap">Handled</Badge>
               ) : (
-                <span className="flex items-center justify-center rounded-full border-[0.5px] border-solid border-[#93c5fd] bg-[#dbeafe] px-[6.5px] py-[2.5px] text-[12px] font-medium leading-[16px] tracking-[-0.06px] whitespace-nowrap text-[#1e40af]">
-                  Awaiting outcome
-                </span>
+                <Badge color="blue" size="xsmall" className="whitespace-nowrap">Awaiting outcome</Badge>
               )}
             </div>
             <div className="flex gap-[4px] text-[14px] leading-[16px] tracking-[-0.07px] whitespace-nowrap text-[#52525b]">
@@ -103,14 +100,9 @@ export function HandledDrawer({ slug, onClose }: { slug: string; onClose: () => 
             </div>
           </div>
         </div>
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={onClose}
-          className="flex size-[28px] shrink-0 items-center justify-center rounded-[8px] border border-solid border-[#e4e4e7] bg-[#fafafa] text-[#52525b] hover:bg-[#f4f4f5]"
-        >
+        <IconButton variant="transparent" size="small" aria-label="Close" onClick={onClose}>
           <RiCloseLine className="size-4" />
-        </button>
+        </IconButton>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -172,42 +164,28 @@ export function HandledDrawer({ slug, onClose }: { slug: string; onClose: () => 
               {row.daysToDecideBy < 0 ? "Renegotiation stalled?" : "Renegotiation in progress"}
             </span>
             <span className="text-[13px] text-[#52525b]">Log what the vendor said. If they&apos;ve gone quiet, send a protective notice so the cancel option stays open.</span>
-            <textarea
+            <Textarea
               value={vendorNote}
               onChange={(event) => setVendorNote(event.target.value)}
               aria-label="Vendor response"
               rows={2}
               placeholder="What did the vendor say?"
-              className="rounded-[6px] border border-solid border-[#bdbdb7] p-[8px] text-[13px]"
             />
             <div className="flex flex-wrap gap-[8px]">
-              <button
-                type="button"
-                disabled={!vendorNote.trim()}
-                onClick={() => {
-                  logVendorResponse(slug, vendorNote.trim());
-                  setVendorNote("");
-                }}
-                className="h-[32px] rounded-[6px] bg-white px-[10px] text-[14px] font-medium shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)] disabled:opacity-40"
-              >
+              <Button variant="secondary" size="small" disabled={!vendorNote.trim()} onClick={() => {
+                logVendorResponse(slug, vendorNote.trim());
+                setVendorNote("");
+              }}>
                 Log vendor response
-              </button>
+              </Button>
               {!decision.noticeSentAt && row.daysToDecideBy < 0 ? (
-                <button
-                  type="button"
-                  onClick={() => recordNotice(slug, { sentAt: stamp(), method: "Email to account executive" })}
-                  className="h-[32px] rounded-[6px] bg-white px-[10px] text-[14px] font-medium shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)]"
-                >
+                <Button variant="secondary" size="small" onClick={() => recordNotice(slug, { sentAt: stamp(), method: "Email to account executive" })}>
                   Send protective notice
-                </button>
+                </Button>
               ) : null}
-              <button
-                type="button"
-                onClick={() => confirmDecision(slug, { ...decision, confirmedAt: stamp() })}
-                className="h-[32px] rounded-[6px] bg-[#2876f5] px-[10px] text-[14px] font-medium text-white"
-              >
+              <Button variant="primary" size="small" onClick={() => confirmDecision(slug, { ...decision, confirmedAt: stamp() })}>
                 Confirm outcome
-              </button>
+              </Button>
             </div>
           </div>
         ) : null}
@@ -219,24 +197,19 @@ export function HandledDrawer({ slug, onClose }: { slug: string; onClose: () => 
               {`Notice sent ${decision.noticeSentAt.slice(0, 10)}${decision.noticeMethod ? ` by ${decision.noticeMethod.toLowerCase()}` : ""}${decision.vendorReference ? `, ref ${decision.vendorReference}` : ""}.`}
             </span>
             <div className="flex flex-wrap items-center gap-[8px]">
-              <input
+              <Input
                 value={disputeSeats}
                 onChange={(event) => setDisputeSeats(event.target.value)}
                 aria-label="Seats on the invoice"
                 placeholder="Seats on the invoice"
-                className="h-[36px] w-[180px] rounded-[6px] border border-solid border-[#bdbdb7] px-[10px] text-[13px]"
+                className="w-[180px]"
               />
-              <button
-                type="button"
-                disabled={!disputeSeats.trim()}
-                onClick={() => {
-                  logVendorResponse(slug, `Dispute: invoice shows ${disputeSeats.trim()} seats; decision was ${decision.targetOutcome ?? "a seat reduction"}. Notice record: ${decision.noticeSentAt?.slice(0, 10)}${decision.vendorReference ? `, ref ${decision.vendorReference}` : ""}.`);
-                  setDisputeSeats("");
-                }}
-                className="h-[36px] rounded-[6px] bg-white px-[12px] text-[14px] font-medium shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)] disabled:opacity-40"
-              >
+              <Button variant="secondary" size="small" disabled={!disputeSeats.trim()} onClick={() => {
+                logVendorResponse(slug, `Dispute: invoice shows ${disputeSeats.trim()} seats; decision was ${decision.targetOutcome ?? "a seat reduction"}. Notice record: ${decision.noticeSentAt?.slice(0, 10)}${decision.vendorReference ? `, ref ${decision.vendorReference}` : ""}.`);
+                setDisputeSeats("");
+              }}>
                 Log dispute
-              </button>
+              </Button>
             </div>
           </div>
         ) : null}
@@ -252,13 +225,9 @@ export function HandledDrawer({ slug, onClose }: { slug: string; onClose: () => 
       </div>
 
       <div className="flex shrink-0 items-center justify-end border-t border-solid border-[#e4e4e7] bg-[#fafafa] px-[16px] py-[12px]">
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex h-[32px] items-center justify-center rounded-[8px] bg-white px-[10px] text-[14px] font-medium tracking-[-0.105px] whitespace-nowrap text-[#18181b] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)] hover:bg-[#f4f4f5]"
-        >
+        <Button variant="secondary" size="small" onClick={onClose}>
           Close
-        </button>
+        </Button>
       </div>
     </div>
   );

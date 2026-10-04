@@ -20,6 +20,30 @@
   --color-ui-bg-subtle-hover: #f4f4f5;
   --color-ui-bg-component-hover: #f4f4f5;
   --color-ui-bg-disabled: #f4f4f5;
+  /* Surfaces Medusa's menus, inputs, selects and overlays draw on. Without
+     these the classes resolve to nothing: menus turn transparent and show the
+     page behind them. */
+  --color-ui-bg-component: #ffffff;
+  --color-ui-bg-component-pressed: #e4e4e7;
+  --color-ui-bg-base-pressed: #e4e4e7;
+  --color-ui-bg-field: #ffffff;
+  --color-ui-bg-field-hover: #fafafa;
+  --color-ui-bg-overlay: rgba(9, 9, 11, 0.4);
+  --color-ui-border-component: #e4e4e7;
+  --color-ui-border-menu-top: #e4e4e7;
+  --color-ui-border-menu-bot: #e4e4e7;
+  --color-ui-border-interactive: #2876f5;
+  --color-ui-border-error: #e11d48;
+  /* Inverted surfaces (tooltips, toasts). */
+  --color-ui-contrast-bg-base: #18181b;
+  --color-ui-contrast-bg-base-hover: #27272a;
+  --color-ui-contrast-bg-base-pressed: #3f3f46;
+  --color-ui-contrast-bg-highlight: #3f3f46;
+  --color-ui-contrast-bg-subtle: #27272a;
+  --color-ui-contrast-border-base: #3f3f46;
+  --color-ui-contrast-border-top: #52525b;
+  --color-ui-contrast-fg-primary: #fafafa;
+  --color-ui-contrast-fg-secondary: #d4d4d8;
 
   --color-ui-fg-base: #18181b;
   --color-ui-fg-subtle: #52525b;

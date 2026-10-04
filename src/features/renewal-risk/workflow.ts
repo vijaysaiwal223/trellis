@@ -32,7 +32,7 @@ function followUpDays(dateOnly: string | undefined): number | null {
   return daysBetween(calendarDateIn(now(), "UTC"), dateOnly);
 }
 
-/** One next action for every renewal, measured against the prototype's Sep 26 snapshot. */
+/** One next action for every renewal, measured against the prototype's Oct 5 snapshot. */
 export function renewalTask(row: Renewal, resolution?: RenewalResolution): RenewalTask {
   const baseHref = "/";
   const decision = resolution?.decision;

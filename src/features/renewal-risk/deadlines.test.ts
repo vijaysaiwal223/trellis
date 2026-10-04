@@ -158,3 +158,13 @@ describe("contract cycles (#29, #32)", () => {
     expect(currentCycle("2027-03-31", 36, "2027-04-02").renewalDate).toBe("2030-03-31");
   });
 });
+
+describe("zero lead time", () => {
+  it("keeps decide-by on the notice date itself, even when it falls on a weekend", () => {
+    // 2026-10-03 is a Saturday: decide-by stays on the vendor's notice date.
+    const d = computeDeadlines({ renewalDate: "2027-01-01", noticeDays: 90, leadTimeDays: 0, today: "2026-10-05" });
+    expect(d.cancelBy).toBe("2026-10-03");
+    expect(d.decideBy).toBe("2026-10-03");
+    expect(d.decideByShifted).toBe(false);
+  });
+});

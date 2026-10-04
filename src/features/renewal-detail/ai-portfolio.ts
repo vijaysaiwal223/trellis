@@ -1,5 +1,5 @@
 import type { Renewal } from "@/features/renewal-risk/types";
-import type { RenewalDetail } from "./types";
+
 
 export type AiPortfolioFacts = {
   renewals: Array<{
@@ -22,29 +22,32 @@ export type AiPortfolioFacts = {
   }>;
 };
 
-export function buildAiPortfolioFacts(
-  entries: Array<{ slug: string; row: Renewal; resolved: boolean }>,
-  details: Record<string, RenewalDetail>,
-): AiPortfolioFacts {
+const money = (amount: number) => `$${Math.round(amount).toLocaleString("en-US")}`;
+
+export function buildAiPortfolioFacts(entries: Array<{ slug: string; row: Renewal; resolved: boolean }>): AiPortfolioFacts {
   return {
-    renewals: entries.map(({ slug, row, resolved }) => ({
-      vendor: row.vendor,
-      category: row.subtitle,
-      contractValue: row.contractValue,
-      renewalType: row.contractType,
-      noticePeriod: details[slug]?.contactDetails.find((field) => field.label === "Notice period")?.value,
-      yoyChange: details[slug]?.contactDetails.find((field) => field.label === "YoY price change")?.value,
-      risk: row.risk,
-      usagePercent: Number.parseInt(row.usage, 10) || 0,
-      purchasedSeats: details[slug]?.plan.purchasedSeats,
-      activeSeats: details[slug]?.plan.activeSeats,
-      possibleWaste: details[slug]?.plan.possibleWaste,
-      cancelBy: row.cancelBy,
-      daysToCancelBy: row.daysToCancelBy,
-      ownerStatus: row.ownerStatus,
-      ownerName: row.owner ?? undefined,
-      resolved,
-    })),
+    renewals: entries.map(({ row, resolved }) => {
+      const unused = row.seats ? row.seats.purchased - row.seats.active : undefined;
+      const perSeat = row.seats ? row.contractValue / row.seats.purchased : undefined;
+      return {
+        vendor: row.vendor,
+        category: row.subtitle,
+        contractValue: row.contractValue,
+        renewalType: row.contractType,
+        noticePeriod: `${row.noticeDays} days`,
+        yoyChange: row.yoyPercent === undefined ? undefined : `${row.yoyPercent > 0 ? "+" : ""}${row.yoyPercent}%`,
+        risk: row.risk,
+        usagePercent: Number.parseInt(row.usage, 10) || 0,
+        purchasedSeats: row.seats?.purchased,
+        activeSeats: row.seats?.active,
+        possibleWaste: unused !== undefined && perSeat !== undefined ? money(perSeat * unused) : undefined,
+        cancelBy: row.cancelBy,
+        daysToCancelBy: row.daysToCancelBy,
+        ownerStatus: row.ownerStatus,
+        ownerName: row.owner ?? undefined,
+        resolved,
+      };
+    }),
   };
 }
 

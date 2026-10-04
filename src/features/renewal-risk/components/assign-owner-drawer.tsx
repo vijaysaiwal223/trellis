@@ -6,13 +6,14 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { iconPath } from "@/lib/assets";
 import { avatarUrl, people, SIGNED_IN_NAME, teamOf } from "@/config/people";
 import { now, stamp } from "@/lib/clock";
-import { useSettings } from "@/lib/settings-state";
 import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
 
 import { addDays, calendarDateIn, daysBetween, type ISODate } from "../deadlines";
+import { ASK_OWNER_DAYS_BEFORE } from "../constants";
 import { useAssessedRenewals } from "../use-assessed-renewals";
 import { renewals } from "../mock-data";
 import type { Renewal } from "../types";
+import { Badge, Button, Checkbox, IconButton, Input, Label, RadioGroup, Textarea } from "@medusajs/ui";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -53,14 +54,13 @@ function Callout({ children }: { children: ReactNode }) {
  * from the renewal's own facts; the people list is the directory, minus departed staff.
  */
 export function AssignOwnerDrawer({ slug, onClose }: { slug: string; onClose: () => void }) {
-  const { assignOwner, departedOwners } = useRenewalRuntime();
-  const { rules } = useSettings();
+  const { assignOwner } = useRenewalRuntime();
   const assessed = useAssessedRenewals(renewals);
   const row = assessed.find((entry) => entry.slug === slug)?.row;
 
   const [query, setQuery] = useState("");
-  const [recommend, setRecommend] = useState(false);
-  const [standingOwner, setStandingOwner] = useState(false);
+  const [recommend, setRecommend] = useState(true);
+  const [standingOwner, setStandingOwner] = useState(true);
 
   // Who already owns something in this category, so the picker can suggest them first.
   const ownedByName = useMemo(() => {
@@ -74,18 +74,17 @@ export function AssignOwnerDrawer({ slug, onClose }: { slug: string; onClose: ()
 
   const candidates = useMemo(() => {
     const directory = people
-      .filter((person) => !departedOwners.includes(person.name))
       .map((person) => ({ name: person.name, team: person.team }));
     const list: { name: string; team: string; you: boolean }[] = [
       ...directory.map((person) => ({ ...person, you: false })),
-      { name: SIGNED_IN_NAME, team: "Admin", you: true },
+      { name: SIGNED_IN_NAME, team: "Procurement", you: true },
     ];
     const sameCategory = (name: string) =>
       assessed.some((entry) => entry.row.owner === name && entry.row.subtitle === row?.subtitle);
     return list
       .map((person) => ({ ...person, suggested: sameCategory(person.name) }))
       .sort((a, b) => Number(b.suggested) - Number(a.suggested));
-  }, [assessed, departedOwners, row?.subtitle]);
+  }, [assessed, row?.subtitle]);
 
   const [selected, setSelected] = useState<string | null>(null);
   const [noteEdit, setNoteEdit] = useState<string | null>(null);
@@ -104,13 +103,13 @@ export function AssignOwnerDrawer({ slug, onClose }: { slug: string; onClose: ()
   const isYou = chosen === SIGNED_IN_NAME;
   const who = isYou ? "you" : firstName(chosen);
   const today = calendarDateIn(now(), "UTC");
-  const askDue = addDays(row.cancelByISO, -rules.askOwnerDaysBefore);
+  const askDue = addDays(row.cancelByISO, -ASK_OWNER_DAYS_BEFORE);
   const dueBy: ISODate = daysBetween(today, askDue) < 0 ? today : askDue;
   const noOwner = row.owner === null;
   const formerOwner = row.formerOwner;
   const yoy = row.yoyPercent;
 
-  const defaultNoteText = `${SIGNED_IN_NAME} made ${who} the owner of ${row.vendor} and needs ${isYou ? "your" : "their"} call by ${weekdayDayMonth(row.decideByISO)}: renew as is, reduce seats, renegotiate or cancel.\n\nThe vendor's notice deadline is ${weekdayDayMonth(row.cancelByISO)}. Usage, price history and seat counts are attached.`;
+  const defaultNoteText = `${SIGNED_IN_NAME} made ${who} the owner of ${row.vendor} and needs ${isYou ? "your" : "their"} call by ${weekdayDayMonth(dueBy)}: renew as is, reduce seats, renegotiate or cancel.\n\nThe vendor's notice deadline is ${weekdayDayMonth(row.cancelByISO)}. Usage, price history and seat counts are attached.`;
 
   const choose = (name: string) => {
     setSelected(name);
@@ -148,9 +147,7 @@ export function AssignOwnerDrawer({ slug, onClose }: { slug: string; onClose: ()
                 {`Assign an owner for ${row.vendor}`}
               </span>
               {noOwner ? (
-                <span className="flex items-center justify-center rounded-full border-[0.5px] border-solid border-[#fdba74] bg-[#ffedd5] px-[6.5px] py-[2.5px] text-[12px] font-medium leading-[16px] tracking-[-0.06px] whitespace-nowrap text-[#9a3412]">
-                  No owner
-                </span>
+                <Badge color="orange" size="xsmall" className="whitespace-nowrap">No owner</Badge>
               ) : null}
             </div>
             <div className="flex gap-[8px] text-[14px] leading-[16px] tracking-[-0.07px] whitespace-nowrap text-[#52525b]">
@@ -159,14 +156,9 @@ export function AssignOwnerDrawer({ slug, onClose }: { slug: string; onClose: ()
             </div>
           </div>
         </div>
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={onClose}
-          className="flex size-[28px] shrink-0 items-center justify-center rounded-[8px] border border-solid border-[#e4e4e7] bg-[#fafafa] text-[#52525b] hover:bg-[#f4f4f5]"
-        >
+        <IconButton variant="transparent" size="small" aria-label="Close" onClick={onClose}>
           <RiCloseLine className="size-4" />
-        </button>
+        </IconButton>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -220,16 +212,12 @@ export function AssignOwnerDrawer({ slug, onClose }: { slug: string; onClose: ()
             <div role="alert" className="flex flex-col gap-[8px] rounded-[8px] bg-[#ffe4e6] p-[12px] text-[13px] text-[#9f1239]">
               <span className="font-medium">{`Nobody owns ${row.vendor} and ${row.daysToCancelBy} day${row.daysToCancelBy === 1 ? "" : "s"} are left.`}</span>
               <span>You can decide it yourself now, or pick an owner below.</span>
-              <button
-                type="button"
-                onClick={() => {
-                  assignOwner(row.id, SIGNED_IN_NAME);
-                  onClose();
-                }}
-                className="h-[32px] w-fit rounded-[6px] bg-white px-[10px] text-[14px] font-medium text-[#18181b] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)]"
-              >
+              <Button variant="secondary" size="small" className="w-fit" onClick={() => {
+                assignOwner(row.id, SIGNED_IN_NAME);
+                onClose();
+              }}>
                 Decide it myself
-              </button>
+              </Button>
             </div>
           ) : null}
           {noOwner && row.contractType === "Manual" ? (
@@ -239,38 +227,29 @@ export function AssignOwnerDrawer({ slug, onClose }: { slug: string; onClose: ()
           ) : null}
           <span className="text-[14px] font-medium leading-[20px] tracking-[-0.14px] text-[#18181b]">Choose who decides</span>
           <div className="flex w-full flex-col gap-[8px]">
-            <label className="flex h-[32px] w-full items-center gap-[8px] rounded-[6px] bg-white px-[8px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)]">
-              <img alt="" className="block size-[16px] shrink-0" src={iconPath("search")} />
-              <input
+            <div className="relative">
+              <img alt="" className="pointer-events-none absolute left-[8px] top-1/2 size-[16px] -translate-y-1/2" src={iconPath("search")} />
+              <Input
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search people"
                 aria-label="Search people"
-                className="min-w-px flex-1 bg-transparent text-[13px] text-[#18181b] outline-none placeholder:text-[#71717a]"
+                className="pl-[30px]"
               />
-            </label>
+            </div>
             <span className="text-[14px] leading-[20px] tracking-[-0.07px] text-[#52525b]">
               {candidates.some((person) => person.suggested)
                 ? `Suggested: people who already own other ${row.subtitle.toLowerCase()} tool`
                 : "Anyone in the directory can take this on."}
             </span>
           </div>
-          <div role="radiogroup" aria-label="Who decides" className="flex w-full items-stretch overflow-clip rounded-[12px] border border-solid border-[#e4e4e7] bg-white">
+          <RadioGroup value={chosen ?? undefined} onValueChange={choose} aria-label="Who decides" className="flex w-full items-stretch overflow-clip rounded-[12px] border border-solid border-[#e4e4e7] bg-white">
             <div className="flex w-[40px] shrink-0 flex-col">
               <div className="h-[40px] border-b border-solid border-[#e4e4e7] bg-[#f4f4f5]" />
               {visibleCandidates.map((person) => (
                 <div key={person.name} className="flex h-[56px] items-center justify-center border-b border-solid border-[#e4e4e7] p-[10px]">
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={chosen === person.name}
-                    aria-label={`Choose ${person.name}`}
-                    onClick={() => choose(person.name)}
-                    className="relative flex size-[20px] items-center justify-center rounded-full bg-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)]"
-                  >
-                    {chosen === person.name ? <span className="size-[8px] rounded-full bg-[#2876f5]" /> : null}
-                  </button>
+                  <RadioGroup.Item value={person.name} aria-label={`Choose ${person.name}`} />
                 </div>
               ))}
             </div>
@@ -314,60 +293,41 @@ export function AssignOwnerDrawer({ slug, onClose }: { slug: string; onClose: ()
                 );
               })}
             </div>
-          </div>
+          </RadioGroup>
         </div>
 
         <div className="flex flex-1 flex-col gap-[12px] p-[16px]">
           <span className="text-[14px] font-medium leading-[20px] tracking-[-0.14px] text-[#18181b]">
             {isYou ? "What you will get" : `What ${firstName(chosen)} will get`}
           </span>
-          <textarea
+          <Textarea
             value={noteEdit ?? defaultNoteText}
             onChange={(event) => setNoteEdit(event.target.value)}
             aria-label="Message to the new owner"
             rows={5}
-            className="h-[119px] w-full resize-none rounded-[6px] bg-white px-[8px] py-[6px] text-[14px] leading-[20px] tracking-[-0.07px] text-[#18181b] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)] outline-none"
           />
-          <label className="flex items-start gap-[8px]">
-            <input
-              type="checkbox"
-              checked={recommend}
-              onChange={(event) => setRecommend(event.target.checked)}
-              className="mt-[2px] size-[16px] shrink-0 accent-[#2876f5]"
-            />
-            <span className="text-[14px] leading-[20px] text-[#18181b]">
-              {`Ask for a recommendation now (due ${rules.askOwnerDaysBefore} days before the deadline)`}
-            </span>
-          </label>
-          <label className="flex items-start gap-[8px]">
-            <input
-              type="checkbox"
-              checked={standingOwner}
-              onChange={(event) => setStandingOwner(event.target.checked)}
-              className="mt-[2px] size-[16px] shrink-0 accent-[#2876f5]"
-            />
-            <span className="text-[14px] leading-[20px] text-[#18181b]">
+          <div className="flex items-center gap-[8px]">
+            <Checkbox id="ask-recommendation" checked={recommend} onCheckedChange={(value) => setRecommend(value === true)} />
+            <Label htmlFor="ask-recommendation" weight="regular" size="small">
+              {`Ask for a recommendation now (due ${ASK_OWNER_DAYS_BEFORE} days before the deadline)`}
+            </Label>
+          </div>
+          <div className="flex items-center gap-[8px]">
+            <Checkbox id="standing-owner" checked={standingOwner} onCheckedChange={(value) => setStandingOwner(value === true)} />
+            <Label htmlFor="standing-owner" weight="regular" size="small">
               {`Make ${isYou ? "you" : firstName(chosen)} the owner for future renewals too`}
-            </span>
-          </label>
+            </Label>
+          </div>
         </div>
       </div>
 
       <div className="flex shrink-0 items-center justify-end gap-[12px] border-t border-solid border-[#e4e4e7] bg-[#fafafa] px-[16px] py-[12px]">
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex h-[32px] items-center justify-center rounded-[8px] bg-white px-[10px] text-[14px] font-medium tracking-[-0.105px] text-[#18181b] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)] hover:bg-[#f4f4f5]"
-        >
+        <Button variant="secondary" size="small" onClick={onClose}>
           Cancel
-        </button>
-        <button
-          type="button"
-          onClick={submit}
-          className="relative flex h-[32px] items-center justify-center overflow-clip rounded-[8px] bg-[#2876f5] px-[10px] text-[14px] font-medium tracking-[-0.105px] whitespace-nowrap text-white shadow-[0px_0px_0px_1px_#0a5ce0] hover:bg-[#1f6be6]"
-        >
+        </Button>
+        <Button variant="primary" size="small" onClick={submit}>
           {isYou ? "Assign yourself and request decision" : `Assign ${firstName(chosen)} and request decision`}
-        </button>
+        </Button>
       </div>
     </div>
   );

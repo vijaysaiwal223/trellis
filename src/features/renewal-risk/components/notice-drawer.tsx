@@ -11,6 +11,7 @@ import { noticeMethods, useRenewalRuntime, type NoticeMethod } from "@/lib/renew
 import { calendarDateIn, daysBetween, type ISODate } from "../deadlines";
 import { useAssessedRenewals } from "../use-assessed-renewals";
 import { renewals } from "../mock-data";
+import { Badge, Button, IconButton, Input, Label, Select, Textarea } from "@medusajs/ui";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const dayMonthYear = (iso: ISODate) => {
@@ -24,7 +25,7 @@ const steps = ["Decided", "Send notice", "Handled"] as const;
  * Written notice for a decision that changes the contract. The decision isn't binding
  * until the vendor has it, so the renewal stays here until the send is recorded.
  */
-export function NoticeDrawer({ slug, onClose }: { slug: string; onClose: () => void }) {
+export function NoticeDrawer({ slug, onClose, onSent }: { slug: string; onClose: () => void; onSent?: (vendor: string) => void }) {
   const { resolutions, recordNotice } = useRenewalRuntime();
   const assessed = useAssessedRenewals(renewals);
   const row = assessed.find((entry) => entry.slug === slug)?.row;
@@ -78,6 +79,7 @@ export function NoticeDrawer({ slug, onClose }: { slug: string; onClose: () => v
 
   const markSent = () => {
     recordNotice(row.id, { sentAt: stamp(), method, reference: reference || undefined });
+    onSent?.(row.vendor);
     onClose();
   };
 
@@ -87,20 +89,13 @@ export function NoticeDrawer({ slug, onClose }: { slug: string; onClose: () => v
         <div className="flex flex-col gap-[4px]">
           <div className="flex items-center gap-[6px]">
             <span className="text-[16px] font-medium leading-[20px] tracking-[-0.16px] text-[#18181b]">{`Send notice to ${row.vendor}`}</span>
-            <span className="rounded-full border-[0.5px] border-solid border-[#fdba74] bg-[#ffedd5] px-[6.5px] py-[2.5px] text-[12px] font-medium leading-[16px] whitespace-nowrap text-[#9a3412]">
-              Send notice
-            </span>
+            <Badge color="orange" size="xsmall">Send notice</Badge>
           </div>
           <span className="text-[14px] leading-[16px] text-[#52525b]">{`Decision: ${actionLabel(decision.action)}${decision.targetOutcome ? ` (${decision.targetOutcome})` : ""}`}</span>
         </div>
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={onClose}
-          className="flex size-[28px] shrink-0 items-center justify-center rounded-[8px] border border-solid border-[#e4e4e7] bg-[#fafafa] text-[#52525b] hover:bg-[#f4f4f5]"
-        >
+        <IconButton variant="transparent" size="small" aria-label="Close" onClick={onClose}>
           <RiCloseLine className="size-4" />
-        </button>
+        </IconButton>
       </div>
 
       <ol className="flex shrink-0 items-center gap-[8px] border-b border-solid border-[#e4e4e7] px-[16px] py-[12px] text-[12px]">
@@ -133,17 +128,16 @@ export function NoticeDrawer({ slug, onClose }: { slug: string; onClose: () => v
 
         <div className="flex flex-col gap-[10px] border-b border-solid border-[#e4e4e7] p-[16px]">
           <span className="text-[14px] font-medium text-[#18181b]">1. Copy the notice</span>
-          <textarea
+          <Textarea
             value={body}
             onChange={(event) => setText(event.target.value)}
             aria-label="Notice text"
             rows={9}
-            className="w-full resize-y rounded-[6px] bg-white px-[10px] py-[8px] text-[13px] leading-[20px] text-[#18181b] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)] outline-none"
           />
           <div>
-            <button type="button" onClick={copy} className="h-[32px] rounded-[8px] bg-white px-[10px] text-[14px] font-medium text-[#18181b] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)] hover:bg-[#f4f4f5]">
+            <Button variant="secondary" size="small" onClick={copy}>
               {copied ? "Copied" : "Copy text"}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -157,38 +151,44 @@ export function NoticeDrawer({ slug, onClose }: { slug: string; onClose: () => v
         <div className="flex flex-col gap-[10px] p-[16px]">
           <span className="text-[14px] font-medium text-[#18181b]">3. Record that it was sent</span>
           <div className="grid grid-cols-2 gap-[10px]">
-            <label className="flex flex-col gap-[4px] text-[13px] font-medium text-[#18181b]">
-              Date sent
-              <input value={dayMonthYear(today)} readOnly className="h-[36px] rounded-[6px] border border-solid border-[#bdbdb7] px-[10px] text-[13px] font-normal text-[#18181b]" />
-            </label>
-            <label className="flex flex-col gap-[4px] text-[13px] font-medium text-[#18181b]">
-              Sent via
-              <select value={method} onChange={(event) => setMethod(event.target.value as NoticeMethod)} className="h-[36px] rounded-[6px] border border-solid border-[#bdbdb7] bg-white px-[8px] text-[13px] font-normal text-[#18181b]">
-                {noticeMethods.map((option) => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
-            </label>
+            <div className="flex flex-col gap-[4px]">
+              <Label size="small" weight="plus">Date sent</Label>
+              <Input value={dayMonthYear(today)} readOnly />
+            </div>
+            <div className="flex flex-col gap-[4px]">
+              <Label size="small" weight="plus">Sent via</Label>
+              <Select value={method} onValueChange={(value) => setMethod(value as NoticeMethod)}>
+                <Select.Trigger>
+                  <Select.Value />
+                </Select.Trigger>
+                <Select.Content>
+                  {noticeMethods.map((option) => (
+                    <Select.Item key={option} value={option}>{option}</Select.Item>
+                  ))}
+                </Select.Content>
+              </Select>
+            </div>
           </div>
-          <label className="flex flex-col gap-[4px] text-[13px] font-medium text-[#18181b]">
-            Confirmation <span className="font-normal text-[#52525b]">optional, e.g. the vendor&apos;s reply</span>
-            <input
+          <div className="flex flex-col gap-[4px]">
+            <Label size="small" weight="plus">
+              Confirmation <span className="font-normal text-ui-fg-subtle">optional, e.g. the vendor&apos;s reply</span>
+            </Label>
+            <Input
               value={reference}
               onChange={(event) => setReference(event.target.value)}
               placeholder="Reference or reply ID"
-              className="h-[36px] rounded-[6px] border border-solid border-[#bdbdb7] px-[10px] text-[13px] font-normal text-[#18181b]"
             />
-          </label>
+          </div>
         </div>
       </div>
 
       <div className="flex shrink-0 items-center justify-end gap-[12px] border-t border-solid border-[#e4e4e7] bg-[#fafafa] px-[16px] py-[12px]">
-        <button type="button" onClick={onClose} className="h-[32px] rounded-[8px] bg-white px-[10px] text-[14px] font-medium text-[#18181b] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)] hover:bg-[#f4f4f5]">
+        <Button variant="secondary" size="small" onClick={onClose}>
           Save, send later
-        </button>
-        <button type="button" onClick={markSent} className="h-[32px] rounded-[8px] bg-[#2876f5] px-[10px] text-[14px] font-medium whitespace-nowrap text-white shadow-[0px_0px_0px_1px_#0a5ce0] hover:bg-[#1f6be6]">
+        </Button>
+        <Button variant="primary" size="small" onClick={markSent}>
           Mark notice sent
-        </button>
+        </Button>
       </div>
     </div>
   );

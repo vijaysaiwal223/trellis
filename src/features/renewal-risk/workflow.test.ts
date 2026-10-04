@@ -9,8 +9,8 @@ import { renewals } from "./mock-data";
 import { renewalTask } from "./workflow";
 
 const seed = renewals.find((entry) => entry.owner !== null)!;
-const row = assessRenewal(seed, seed.owner ?? undefined, []);
-const unowned = assessRenewal(renewals.find((entry) => entry.owner === null)!, undefined, []);
+const row = assessRenewal(seed, seed.owner ?? undefined);
+const unowned = assessRenewal(renewals.find((entry) => entry.owner === null)!, undefined);
 
 function decision(action: DecisionAction, patch: Partial<DecisionRecord> = {}): DecisionRecord {
   return { action, note: "", ownerName: seed.owner ?? undefined, recordedAt: "2026-09-26T12:00:00.000Z", ...patch };

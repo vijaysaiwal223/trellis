@@ -38,7 +38,3 @@ export function renewalStage(row: Renewal, resolution?: RenewalResolution): Rene
   if (!row.owner) return "no-owner";
   return "awaiting-owner";
 }
-
-export function isOpenStage(stage: RenewalStage): boolean {
-  return stage !== "handled";
-}

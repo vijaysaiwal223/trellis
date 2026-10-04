@@ -160,7 +160,9 @@ export function computeDeadlines(input: DeadlineInput): Deadlines {
       : currentCycle(input.renewalDate, input.termMonths, input.today);
 
   const cancelBy = computeCancelBy(cycle.renewalDate, input.noticeDays);
-  const decide = computeDecideBy(cancelBy, input.leadTimeDays, holidays);
+  // With no lead time, decide-by is the vendor's notice date itself: it is not moved to a business day.
+  const decide: RollResult =
+    input.leadTimeDays > 0 ? computeDecideBy(cancelBy, input.leadTimeDays, holidays) : { date: cancelBy, shifted: false };
 
   return {
     renewalDate: cycle.renewalDate,

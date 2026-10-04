@@ -1,19 +1,18 @@
 "use client";
 
-import { Input } from "@medusajs/ui";
+import { Button, Heading, Input, Tabs, Text } from "@medusajs/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AskBrunoButton } from "@/components/layout/ask-bruno-button";
 import { useRightPanel } from "@/components/layout/right-panel-state";
+import { SIGNED_IN_NAME } from "@/config/people";
+import { calendarDateIn } from "@/features/renewal-risk/deadlines";
+import { now } from "@/lib/clock";
+import { dayMonth } from "@/lib/dates";
 import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
-import { useSettings } from "@/lib/settings-state";
 import {
   MetricsSummary,
   AssignOwnerDrawer,
-  DecideAloneDrawer,
-  DisputeDrawer,
-  ManualDrawer,
-  NegotiationDrawer,
   HandledDrawer,
   LockedInDrawer,
   NoticeDrawer,
@@ -22,29 +21,29 @@ import {
   RenewalsTable,
   deriveMetrics,
   renewals,
+  stageLabel,
   useAssessedRenewals,
   type MetricKey,
   type RenewalStage,
 } from "@/features/renewal-risk";
 
-type DrawerKind = "assign" | "review" | "locked" | "handled" | "notice" | "alone" | "manual" | "negotiation" | "dispute";
+type DrawerKind = "assign" | "review" | "locked" | "handled" | "notice";
 
-/** The renewals the table shows, in the order the review is walked through. */
-const tableVendors = ["Gong", "Miro", "Zoom", "Jira", "HubSpot", "Figma", "Salesforce", "Asana", "Tableau"];
+const todayLabel = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
+  .format(now())
+  .replace(/^(\w+) /, "$1, ");
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 // Status tabs follow the flow's stages. "All open" is the default working view.
 const stageTabs: { key: string; label: string; matches: (stage: RenewalStage) => boolean }[] = [
-  // Open renewals: everything not yet handled. Outcomes waiting for confirmation still need the lead.
-  { key: "open", label: "All open", matches: (stage) => stage !== "handled" },
+  // The working view: every renewal in the queue, handled ones included, so the lead sees what closed.
+  { key: "open", label: "All open", matches: () => true },
   { key: "no-owner", label: "No owner", matches: (stage) => stage === "no-owner" },
   { key: "awaiting", label: "Awaiting owner", matches: (stage) => stage === "awaiting-owner" || stage === "recommendation-in" },
   { key: "notice", label: "Ready for notice", matches: (stage) => stage === "ready-for-notice" },
   { key: "handled", label: "Handled", matches: (stage) => stage === "handled" },
 ];
-
-const chipBase = "flex h-[32px] shrink-0 items-center justify-center gap-[6px] overflow-clip rounded-[6px] bg-white px-[10px] whitespace-nowrap text-[14px] font-medium leading-[20px] tracking-[-0.105px] text-[#18181b]";
 
 export default function RenewalRiskPage() {
   const [filterKey, setFilterKey] = useState<MetricKey | null>(null);
@@ -52,8 +51,9 @@ export default function RenewalRiskPage() {
   const [tabKey, setTabKey] = useState("open");
   // One drawer at a time: assigning an owner, or reviewing the owner's recommendation.
   const [drawer, setDrawer] = useState<{ kind: DrawerKind; slug: string } | null>(null);
+  // After written notice goes out, the lead gets a confirmation until they dismiss it.
+  const [notice, setNotice] = useState<{ slug: string; vendor: string; date: string } | null>(null);
   const { resolutions } = useRenewalRuntime();
-  const { rules } = useSettings();
   const { setPanel } = useRightPanel();
   const closeDrawer = useCallback(() => setDrawer(null), []);
 
@@ -68,21 +68,17 @@ export default function RenewalRiskPage() {
       kind === "assign" ? <AssignOwnerDrawer key={`assign-${slug}`} slug={slug} onClose={closeDrawer} />
       : kind === "review" ? <RecommendationDrawer key={`review-${slug}`} slug={slug} onClose={closeDrawer} />
       : kind === "locked" ? <LockedInDrawer key={`locked-${slug}`} slug={slug} onClose={closeDrawer} />
-      : kind === "notice" ? <NoticeDrawer key={`notice-${slug}`} slug={slug} onClose={closeDrawer} />
-      : kind === "alone" ? <DecideAloneDrawer key={`alone-${slug}`} slug={slug} onClose={closeDrawer} />
-      : kind === "manual" ? (
-        <ManualDrawer
-          key={`manual-${slug}`}
+      : kind === "notice" ? (
+        <NoticeDrawer
+          key={`notice-${slug}`}
           slug={slug}
           onClose={closeDrawer}
-          onAssignFirst={() => setDrawer({ kind: "assign", slug })}
+          onSent={(vendor) => setNotice({ slug, vendor, date: dayMonth(calendarDateIn(now(), "UTC")) })}
         />
       )
-      : kind === "negotiation" ? <NegotiationDrawer key={`negotiation-${slug}`} slug={slug} onClose={closeDrawer} />
-      : kind === "dispute" ? <DisputeDrawer key={`dispute-${slug}`} slug={slug} onClose={closeDrawer} />
       : <HandledDrawer key={`handled-${slug}`} slug={slug} onClose={closeDrawer} />;
     setPanel(element);
-  }, [drawer, closeDrawer, setPanel]);
+  }, [drawer, closeDrawer, setPanel, setNotice]);
   useEffect(() => () => setPanel(null), [setPanel]);
   const assessed = useAssessedRenewals(renewals);
   const metrics = useMemo(() => deriveMetrics(assessed), [assessed]);
@@ -107,24 +103,63 @@ export default function RenewalRiskPage() {
 
   const searchedRenewals = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const listed = renewals.filter(
-      (row) => tableVendors.includes(row.vendor) && !(rules.skipMonthToMonth && row.contractType === "Month-to-month"),
-    );
-    return q ? listed.filter((row) => row.vendor.toLowerCase().includes(q)) : listed;
-  }, [query, rules.skipMonthToMonth]);
+    return q ? renewals.filter((row) => row.vendor.toLowerCase().includes(q)) : renewals;
+  }, [query]);
+
+  // The queue as a CSV: what the table shows, one row per renewal.
+  const exportQueue = () => {
+    const header = ["Vendor", "Decide by", "Renews", "Annual value", "Owner", "Status"];
+    const lines = assessed.map(({ row, slug }) => [
+      row.vendor,
+      row.cancelByISO,
+      row.renewalDate,
+      String(row.contractValue),
+      row.owner ?? (row.formerOwner ? `${row.formerOwner} (left company)` : ""),
+      stageLabel[renewalStage(row, resolutions[slug])],
+    ]);
+    const csv = [header, ...lines].map((cells) => cells.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "renewal-decisions.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="flex min-h-full w-full flex-col">
+      {notice ? (
+        <div role="status" className="mx-[16px] mt-[16px] flex flex-wrap items-center justify-between gap-[12px] rounded-[10px] border border-solid border-[#a7f3d0] bg-[#ecfdf5] px-[16px] py-[12px] text-[14px] text-[#065f46]">
+          <span>
+            <span className="font-semibold">{`${notice.vendor} notice sent ${notice.date}.`}</span>
+            {` Sent by ${SIGNED_IN_NAME}. It stays open until the vendor's outcome is confirmed.`}
+          </span>
+          <span className="flex items-center gap-[8px]">
+            <Button variant="secondary" size="small" onClick={() => { setDrawer({ kind: "handled", slug: notice.slug }); setNotice(null); }}>
+              View record
+            </Button>
+            <Button variant="secondary" size="small" onClick={() => setNotice(null)}>
+              Dismiss
+            </Button>
+          </span>
+        </div>
+      ) : null}
       <header className="flex shrink-0 items-center justify-between px-[16px] py-[20px]">
         <div className="flex flex-col gap-[8px]">
-          <h1 className="font-heading text-[20px] font-semibold leading-[28px] tracking-[-0.05px] text-[#18181b]">
-            Renewal decision
-          </h1>
-          <p className="text-[14px] leading-[20px] tracking-[-0.07px] text-[#52525b]">
+          <Heading level="h1" className="font-heading text-[20px] font-semibold leading-[28px] tracking-[-0.05px] text-[#18181b]">
+            Renewal decisions
+          </Heading>
+          <Text className="text-[14px] leading-[20px] tracking-[-0.07px] text-[#52525b]">
             Sorted by decide-by: the last day you can cancel or change a contract (renewal date minus notice period).
-          </p>
+          </Text>
         </div>
-        <AskBrunoButton />
+        <div className="flex items-center gap-[12px]">
+          <span className="whitespace-nowrap text-[14px] text-[#52525b]">{todayLabel}</span>
+          <Button variant="secondary" size="small" onClick={exportQueue}>
+            Export
+          </Button>
+          <AskBrunoButton />
+        </div>
       </header>
       <div className="shrink-0">
         <MetricsSummary
@@ -135,27 +170,15 @@ export default function RenewalRiskPage() {
       </div>
       <div className="flex flex-col gap-[24px] p-[16px]">
         <div className="flex w-full shrink-0 items-center justify-between">
-          <div role="tablist" aria-label="Renewal status" className="flex items-center gap-[8px]">
-            {stageTabs.map((tab) => {
-              const selected = tab.key === activeTab.key;
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={selected}
-                  onClick={() => setTabKey(tab.key)}
-                  className={`${chipBase} ${
-                    selected
-                      ? "shadow-[0px_0px_0px_4px_rgba(37,99,235,0.2),0px_0px_0px_1px_#2563eb]"
-                      : "shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)] hover:bg-[#f4f4f5]"
-                  }`}
-                >
+          <Tabs value={activeTab.key} onValueChange={setTabKey}>
+            <Tabs.List>
+              {stageTabs.map((tab) => (
+                <Tabs.Trigger key={tab.key} value={tab.key}>
                   {tab.label}
-                </button>
-              );
-            })}
-          </div>
+                </Tabs.Trigger>
+              ))}
+            </Tabs.List>
+          </Tabs>
           <Input
             type="search"
             value={query}
@@ -178,17 +201,11 @@ export default function RenewalRiskPage() {
             const row = assessed.find((entry) => entry.slug === id)?.row;
             if (!row) return;
             const stage = renewalStage(row, resolutions[id]);
-            const decision = resolutions[id]?.decision;
-            const escalated = stage === "awaiting-owner" && row.daysToDecideBy < -rules.escalateAfterDays;
             const kind: DrawerKind | null =
               stage === "locked-in" ? "locked"
               : stage === "recommendation-in" ? "review"
-              : stage === "no-owner" && row.contractType === "Manual" ? "manual"
-              : (stage === "no-owner" && row.daysToCancelBy <= 2) || escalated ? "alone"
               : stage === "awaiting-owner" || stage === "no-owner" ? "assign"
               : stage === "ready-for-notice" ? "notice"
-              : stage === "awaiting-outcome" && decision?.action === "Renegotiate" ? "negotiation"
-              : stage === "awaiting-outcome" && decision?.action === "Right-size" && decision.noticeSentAt ? "dispute"
               : stage === "handled" || stage === "awaiting-outcome" ? "handled"
               : null;
             if (kind) setDrawer((current) => (current?.slug === id && current.kind === kind ? null : { kind, slug: id }));

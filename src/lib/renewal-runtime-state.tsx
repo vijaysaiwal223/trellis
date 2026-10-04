@@ -10,11 +10,6 @@ import {
   type ReactNode,
 } from "react";
 
-import {
-  defaultIntegrations,
-  type IntegrationId,
-  type IntegrationSettings,
-} from "@/config/integrations";
 import type { DecisionAction } from "@/features/renewal-detail/types";
 import { stamp } from "@/lib/clock";
 import { formatLongISO } from "@/features/renewal-risk/deadlines";
@@ -102,7 +97,8 @@ export function isDecisionClosed(decision: DecisionRecord): boolean {
   return Boolean(decision.confirmedAt);
 }
 
-const STORAGE_KEY = "trellis-renewal-runtime-v1";
+// Bumped with the demo seed, so browsers don't keep state saved against the old seed.
+const STORAGE_KEY = "trellis-renewal-runtime-v2";
 
 type RenewalRuntimeContextValue = {
   /** Keyed by vendor slug (see @/lib/vendor-slug). */
@@ -119,21 +115,6 @@ type RenewalRuntimeContextValue = {
   scheduleNextCycle: (slug: string, reviewOn: string) => void;
   /** Accept a missed-deadline renewal as it is. Recorded and confirmed in one step. */
   acceptAsIs: (slug: string) => void;
-  /** One-click links already used to record a decision; each works once. */
-  usedTokens: string[];
-  markTokenUsed: (token: string) => void;
-  /** False until the browser store has been read. */
-  ready: boolean;
-  /** People who have left the company; tools they own count as unowned. */
-  departedOwners: string[];
-  markDeparted: (name: string) => void;
-  reinstateOwner: (name: string) => void;
-  /** Policy: when an owner departs, hand their tools to a colleague automatically. */
-  autoHandoff: boolean;
-  setAutoHandoff: (value: boolean) => void;
-  /** Prototype settings for future external alerts; no delivery is connected. */
-  integrations: Record<IntegrationId, IntegrationSettings>;
-  updateIntegration: (id: IntegrationId, patch: Partial<IntegrationSettings>) => void;
 };
 
 export type AssignOptions = {
@@ -150,27 +131,39 @@ const RenewalRuntimeContext = createContext<RenewalRuntimeContextValue | null>(n
  * a backend is still required for shared ownership and external delivery.
  */
 /**
- * Demo starting point: one owner has already answered, so the "Recommendation in"
- * status and its review drawer are reachable. Replaced by saved state once it exists.
+ * Demo starting point, as on the design's first screen (5 Oct): Jira is already
+ * handled, HubSpot's owner has recommended, and three owners have been asked.
  */
 const demoResolutions: Record<string, RenewalResolution> = {
-  snowflake: {
-    recommendation: {
-      action: "Right-size",
-      targetOutcome: "Reduce to 70 seats",
-      note: "About 15 seats have been inactive for 30+ days. Keeping 70 covers the Q1 hires.",
-      submittedAt: "2026-09-25T10:00:00.000Z",
+  jira: {
+    decision: {
+      action: "Renew",
+      note: "Usage is high and the team uses nearly every seat. Renew as is.",
+      recordedAt: "2026-09-28T10:00:00.000Z",
+      confirmedAt: "2026-09-28T10:00:00.000Z",
     },
+  },
+  hubspot: {
+    recommendation: {
+      action: "Renegotiate",
+      note: "Adoption is 73% and rising, but the 18% increase is too high. Push back on price and keep the seats.",
+      submittedAt: "2026-10-02T10:00:00.000Z",
+    },
+  },
+  salesforce: {
+    ownerRequest: { sentAt: "2026-10-01T09:00:00.000Z", dueBy: "2026-10-26", from: "Anika Rao" },
+  },
+  asana: {
+    ownerRequest: { sentAt: "2026-10-01T09:00:00.000Z", dueBy: "2026-10-26", from: "Anika Rao" },
+  },
+  tableau: {
+    ownerRequest: { sentAt: "2026-10-02T09:00:00.000Z", dueBy: "2026-10-27", from: "Anika Rao" },
   },
 };
 
 export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
   const [restored, setRestored] = useState(false);
   const [resolutions, setResolutions] = useState<Record<string, RenewalResolution>>(demoResolutions);
-  const [departedOwners, setDepartedOwners] = useState<string[]>([]);
-  const [autoHandoff, setAutoHandoff] = useState(true);
-  const [integrations, setIntegrations] = useState(defaultIntegrations);
-  const [usedTokens, setUsedTokens] = useState<string[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -182,16 +175,6 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
           const snapshot = JSON.parse(saved) as Record<string, unknown>;
           if (snapshot.resolutions && typeof snapshot.resolutions === "object" && !Array.isArray(snapshot.resolutions)) {
             setResolutions(snapshot.resolutions as Record<string, RenewalResolution>);
-          }
-          if (Array.isArray(snapshot.departedOwners)) {
-            setDepartedOwners(snapshot.departedOwners.filter((name): name is string => typeof name === "string"));
-          }
-          if (typeof snapshot.autoHandoff === "boolean") setAutoHandoff(snapshot.autoHandoff);
-          if (snapshot.integrations && typeof snapshot.integrations === "object" && !Array.isArray(snapshot.integrations)) {
-            setIntegrations(snapshot.integrations as Record<IntegrationId, IntegrationSettings>);
-          }
-          if (Array.isArray(snapshot.usedTokens)) {
-            setUsedTokens(snapshot.usedTokens.filter((token): token is string => typeof token === "string"));
           }
         }
       } catch {
@@ -206,11 +189,11 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!restored) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ resolutions, departedOwners, autoHandoff, integrations, usedTokens }));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ resolutions }));
     } catch {
       // The session remains usable when storage is blocked or full.
     }
-  }, [restored, resolutions, departedOwners, autoHandoff, integrations, usedTokens]);
+  }, [restored, resolutions]);
 
   const assignOwner = useCallback((slug: string, name: string, options?: AssignOptions) => {
     setResolutions((prev) => {
@@ -371,22 +354,6 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const markTokenUsed = useCallback((token: string) => {
-    setUsedTokens((prev) => (prev.includes(token) ? prev : [...prev, token]));
-  }, []);
-
-  const markDeparted = useCallback((name: string) => {
-    setDepartedOwners((prev) => (prev.includes(name) ? prev : [...prev, name]));
-  }, []);
-
-  const reinstateOwner = useCallback((name: string) => {
-    setDepartedOwners((prev) => prev.filter((entry) => entry !== name));
-  }, []);
-
-  const updateIntegration = useCallback((id: IntegrationId, patch: Partial<IntegrationSettings>) => {
-    setIntegrations((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
-  }, []);
-
   const value = useMemo(
     () => ({
       resolutions,
@@ -398,16 +365,6 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
       logVendorResponse,
       scheduleNextCycle,
       acceptAsIs,
-      usedTokens,
-      markTokenUsed,
-      ready: restored,
-      departedOwners,
-      markDeparted,
-      reinstateOwner,
-      autoHandoff,
-      setAutoHandoff,
-      integrations,
-      updateIntegration,
     }),
     [
       resolutions,
@@ -419,15 +376,6 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
       logVendorResponse,
       scheduleNextCycle,
       acceptAsIs,
-      usedTokens,
-      markTokenUsed,
-      restored,
-      departedOwners,
-      markDeparted,
-      reinstateOwner,
-      autoHandoff,
-      integrations,
-      updateIntegration,
     ],
   );
 

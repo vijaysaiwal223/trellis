@@ -6,30 +6,15 @@ import { riskFromScore, urgencyScore } from "./assessment";
 import { calendarDateIn, computeCancelBy, daysBetween } from "./deadlines";
 import type { BadgeColor, ContractType, RenewalSeed } from "./types";
 
-/**
- * Vendors with a real logo file under public/assets/figma/. Most came from
- * the Figma file's "logos" frame (node 187:19914) as .png; Snowflake's was
- * added separately as a .jpeg, hence the per-vendor extension.
- */
+/** Vendors with a logo file under public/assets/figma/. Empty string means initials render instead. */
 const LOGO_EXTENSION: Partial<Record<string, string>> = {
-  Slack: "png", Figma: "png", Zoom: "png", GitHub: "png", Jira: "png", Miro: "png",
-  HubSpot: "png", Datadog: "png", Dropbox: "png", Asana: "png", Zendesk: "png",
-  "Adobe Creative Cloud": "png", "Microsoft 365": "png", Intercom: "png",
-  Airtable: "png", Okta: "png", Superhuman: "png", Snowflake: "jpeg",
+  Slack: "png", Figma: "png", Zoom: "png", Jira: "png", Miro: "png", HubSpot: "png", Asana: "png",
 };
 
 /**
- * Raw rows from the Trellis Figma file's data table (node 68:9270), minus
- * Salesforce and Notion — those already exist in `mock-data.ts` as
- * hand-tuned demo scenarios (missed deadline + departed owner, healthy
- * usage) with numbers that conflict with this table's generic versions, so
- * the curated ones stay and these aren't re-imported under the same name.
- *
- * "Negotiated" (the source table's renewal type) isn't one of our three
- * ContractType values. Treated as "Auto-renew": a negotiated enterprise
- * contract still typically carries an auto-renewal clause unless the MSA
- * says otherwise, so silence is still the risky default — same reasoning
- * the rest of the product uses to flag auto-renew as the dangerous case.
+ * Renewal facts for the subscriptions the decision queue tracks, from the
+ * Trellis data table. "Negotiated" and "Auto-Renew" both behave as auto-renew:
+ * silence still renews the contract.
  */
 type RawVendorRecord = {
   vendor: string;
@@ -37,63 +22,39 @@ type RawVendorRecord = {
   contractValue: number;
   /** ISO date. */
   renewalDate: string;
-  renewalType: "Auto-Renew" | "Negotiated";
+  renewalType: "Auto-Renew" | "Negotiated" | "Manual";
   noticePeriodDays: number;
   purchasedSeats: number;
   activeSeats: number;
+  /** Null when nobody is in charge. */
   owner: string | null;
+  /** Set when the owner has left the company, so the tool is unowned and says why. */
+  formerOwner?: string;
   yoyPercent: number;
 };
 
-export const rawVendorRecords: RawVendorRecord[] = [
-  { vendor: "Slack", category: "Collaboration", contractValue: 48_000, renewalDate: "2026-12-31", renewalType: "Auto-Renew", noticePeriodDays: 60, purchasedSeats: 420, activeSeats: 368, owner: "Sarah Chen", yoyPercent: 8 },
-  { vendor: "Figma", category: "Design", contractValue: 32_400, renewalDate: "2027-03-31", renewalType: "Auto-Renew", noticePeriodDays: 30, purchasedSeats: 120, activeSeats: 94, owner: "Alex Morgan", yoyPercent: 5 },
-  { vendor: "Zoom", category: "Communication", contractValue: 28_800, renewalDate: "2026-12-31", renewalType: "Auto-Renew", noticePeriodDays: 30, purchasedSeats: 400, activeSeats: 216, owner: "Priya Sharma", yoyPercent: 4 },
-  { vendor: "GitHub", category: "Engineering", contractValue: 72_000, renewalDate: "2027-03-31", renewalType: "Auto-Renew", noticePeriodDays: 60, purchasedSeats: 260, activeSeats: 238, owner: "James Wilson", yoyPercent: 6 },
-  { vendor: "Jira", category: "Project Management", contractValue: 55_000, renewalDate: "2026-12-31", renewalType: "Auto-Renew", noticePeriodDays: 60, purchasedSeats: 350, activeSeats: 302, owner: "Emily Clark", yoyPercent: 9 },
-  { vendor: "Miro", category: "Collaboration", contractValue: 24_000, renewalDate: "2027-09-30", renewalType: "Auto-Renew", noticePeriodDays: 30, purchasedSeats: 200, activeSeats: 86, owner: null, yoyPercent: 12 },
-  { vendor: "HubSpot", category: "Marketing", contractValue: 84_000, renewalDate: "2026-12-20", renewalType: "Negotiated", noticePeriodDays: 90, purchasedSeats: 80, activeSeats: 67, owner: "Rachel Adams", yoyPercent: 7 },
-  { vendor: "Datadog", category: "Monitoring", contractValue: 126_000, renewalDate: "2027-03-31", renewalType: "Negotiated", noticePeriodDays: 60, purchasedSeats: 150, activeSeats: 142, owner: "Chris Lee", yoyPercent: 15 },
-  { vendor: "Dropbox", category: "Storage", contractValue: 38_400, renewalDate: "2027-06-30", renewalType: "Auto-Renew", noticePeriodDays: 30, purchasedSeats: 320, activeSeats: 174, owner: "Amanda Patel", yoyPercent: 3 },
-  { vendor: "Asana", category: "Project Management", contractValue: 33_600, renewalDate: "2026-12-31", renewalType: "Auto-Renew", noticePeriodDays: 60, purchasedSeats: 240, activeSeats: 113, owner: null, yoyPercent: 6 },
-  { vendor: "Zendesk", category: "Customer Support", contractValue: 68_000, renewalDate: "2027-01-05", renewalType: "Negotiated", noticePeriodDays: 90, purchasedSeats: 95, activeSeats: 83, owner: "Olivia Brown", yoyPercent: 8 },
-  { vendor: "Adobe Creative Cloud", category: "Design", contractValue: 94_500, renewalDate: "2027-03-31", renewalType: "Auto-Renew", noticePeriodDays: 30, purchasedSeats: 150, activeSeats: 121, owner: "Alex Morgan", yoyPercent: 5 },
-  { vendor: "Microsoft 365", category: "Productivity", contractValue: 156_000, renewalDate: "2026-12-31", renewalType: "Auto-Renew", noticePeriodDays: 90, purchasedSeats: 650, activeSeats: 604, owner: "Kevin Miller", yoyPercent: 4 },
-  { vendor: "Intercom", category: "Customer Support", contractValue: 42_000, renewalDate: "2027-03-30", renewalType: "Auto-Renew", noticePeriodDays: 60, purchasedSeats: 75, activeSeats: 58, owner: "Sophia Garcia", yoyPercent: 13 },
-  { vendor: "Airtable", category: "Productivity", contractValue: 29_400, renewalDate: "2027-06-30", renewalType: "Auto-Renew", noticePeriodDays: 30, purchasedSeats: 180, activeSeats: 72, owner: null, yoyPercent: 9 },
-  { vendor: "Okta", category: "Security", contractValue: 108_000, renewalDate: "2026-12-31", renewalType: "Negotiated", noticePeriodDays: 90, purchasedSeats: 500, activeSeats: 472, owner: "Robert Taylor", yoyPercent: 7 },
-  { vendor: "Superhuman", category: "Productivity", contractValue: 18_000, renewalDate: "2027-04-01", renewalType: "Auto-Renew", noticePeriodDays: 30, purchasedSeats: 200, activeSeats: 98, owner: "Megan Scott", yoyPercent: 0 },
-  { vendor: "Snowflake", category: "Data & Analytics", contractValue: 240_000, renewalDate: "2026-12-31", renewalType: "Negotiated", noticePeriodDays: 90, purchasedSeats: 85, activeSeats: 79, owner: "Ethan Davis", yoyPercent: 18 },
-  // Gong renews 2026-12-20 (not the canvas's 1 Jan) so its notice deadline falls before the Sep 26 snapshot: the missed-deadline case.
-  { vendor: "Gong", category: "Sales", contractValue: 96_000, renewalDate: "2026-12-20", renewalType: "Auto-Renew", noticePeriodDays: 90, purchasedSeats: 120, activeSeats: 88, owner: "Priya Sharma", yoyPercent: 14 },
+const rawVendorRecords: RawVendorRecord[] = [
+  { vendor: "Slack", category: "Collaboration", contractValue: 48_000, renewalDate: "2027-01-04", renewalType: "Auto-Renew", noticePeriodDays: 60, purchasedSeats: 420, activeSeats: 368, owner: "Jordan Wu", yoyPercent: 8 },
+  { vendor: "Figma", category: "Design", contractValue: 28_800, renewalDate: "2026-12-31", renewalType: "Manual", noticePeriodDays: 60, purchasedSeats: 60, activeSeats: 61, owner: null, yoyPercent: 5 },
+  { vendor: "Zoom", category: "Collaboration", contractValue: 42_000, renewalDate: "2027-01-09", renewalType: "Auto-Renew", noticePeriodDays: 90, purchasedSeats: 500, activeSeats: 312, owner: null, formerOwner: "Marcus Lee", yoyPercent: 8 },
+  { vendor: "Jira", category: "Engineering", contractValue: 38_400, renewalDate: "2027-01-15", renewalType: "Auto-Renew", noticePeriodDays: 90, purchasedSeats: 250, activeSeats: 238, owner: "Dev Patel", yoyPercent: 15 },
+  { vendor: "Miro", category: "Collaboration", contractValue: 14_400, renewalDate: "2027-01-08", renewalType: "Auto-Renew", noticePeriodDays: 90, purchasedSeats: 120, activeSeats: 38, owner: null, yoyPercent: 0 },
+  { vendor: "HubSpot", category: "Marketing", contractValue: 64_800, renewalDate: "2026-12-31", renewalType: "Auto-Renew", noticePeriodDays: 60, purchasedSeats: 30, activeSeats: 22, owner: "Elena Ruiz", yoyPercent: 18 },
+  { vendor: "Asana", category: "Operations", contractValue: 21_600, renewalDate: "2027-01-31", renewalType: "Auto-Renew", noticePeriodDays: 90, purchasedSeats: 180, activeSeats: 97, owner: "Tom Becker", yoyPercent: 10 },
   { vendor: "Tableau", category: "Analytics", contractValue: 57_600, renewalDate: "2027-02-01", renewalType: "Auto-Renew", noticePeriodDays: 90, purchasedSeats: 80, activeSeats: 41, owner: "Sam Okafor", yoyPercent: 9 },
+  { vendor: "Gong", category: "Sales", contractValue: 96_000, renewalDate: "2027-01-01", renewalType: "Auto-Renew", noticePeriodDays: 90, purchasedSeats: 120, activeSeats: 88, owner: "Priya Shah", yoyPercent: 14 },
+  { vendor: "DocuSign", category: "Legal", contractValue: 24_000, renewalDate: "2027-02-03", renewalType: "Auto-Renew", noticePeriodDays: 90, purchasedSeats: 120, activeSeats: 96, owner: "Nadia Brooks", yoyPercent: 4 },
 ];
 
-/** Today in the prototype's world, from the shared clock. */
-export const TODAY_ISO = calendarDateIn(now(), "UTC");
-export const TODAY = new Date(`${TODAY_ISO}T00:00:00Z`);
+const TODAY_ISO = calendarDateIn(now(), "UTC");
 
-export function formatShortDate(date: Date): string {
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-}
-
-export function contractTypeFor(): ContractType {
-  // Both source values ("Auto-Renew" and "Negotiated") map to "Auto-renew" —
-  // see the module comment above for why "Negotiated" isn't treated as safer.
-  return "Auto-renew";
-}
-
-export function cancelByDateFor(raw: RawVendorRecord): Date {
-  return new Date(`${computeCancelBy(raw.renewalDate, raw.noticePeriodDays)}T00:00:00Z`);
-}
-
-export function usagePercentFor(raw: RawVendorRecord): number {
-  return Math.round((raw.activeSeats / raw.purchasedSeats) * 100);
+function contractTypeFor(raw: RawVendorRecord): ContractType {
+  return raw.renewalType === "Manual" ? "Manual" : "Auto-renew";
 }
 
 // Empty string means Avatar renders its initials fallback instead of a
 // broken image — used for any vendor without a real logo file.
-export function logoFor(raw: RawVendorRecord): string {
+function logoFor(raw: RawVendorRecord): string {
   const extension = LOGO_EXTENSION[raw.vendor];
   return extension ? assetPath(`vendor-${toVendorSlug(raw.vendor)}.${extension}`) : "";
 }
@@ -101,13 +62,10 @@ export function logoFor(raw: RawVendorRecord): string {
 function toRenewalSeed(raw: RawVendorRecord): RenewalSeed {
   const daysToCancelBy = daysBetween(TODAY_ISO, computeCancelBy(raw.renewalDate, raw.noticePeriodDays));
   const ownerless = raw.owner === null;
-  // The default status label has to agree with the computed risk badge —
-  // "On track" next to a Critical badge is exactly the contradiction this
-  // product exists to catch (it's one of the bugs fixed earlier in this
-  // session for the curated vendors; the imported batch needs the same rule).
-  const risk = riskFromScore(
-    urgencyScore({ daysToCancelBy, contractValue: raw.contractValue, contractType: contractTypeFor(), ownerless }),
-  );
+  const contractType = contractTypeFor(raw);
+  const usage = Math.round((raw.activeSeats / raw.purchasedSeats) * 100);
+  // The default status label has to agree with the computed risk badge.
+  const risk = riskFromScore(urgencyScore({ daysToCancelBy, contractValue: raw.contractValue, contractType, ownerless }));
   const status: { status: string; statusTone: BadgeColor; action: string } = ownerless
     ? { status: "Assign owner", statusTone: "orange", action: "Assign" }
     : risk === "Critical" || risk === "High"
@@ -123,11 +81,12 @@ function toRenewalSeed(raw: RawVendorRecord): RenewalSeed {
     renewalDate: raw.renewalDate,
     noticePeriodDays: raw.noticePeriodDays,
     contractValue: raw.contractValue,
-    contractType: contractTypeFor(),
+    contractType,
     owner: raw.owner,
     team: null,
-    vacancy: ownerless ? "unassigned" : undefined,
-    usage: `${usagePercentFor(raw)}%`,
+    vacancy: raw.formerOwner ? "departed" : ownerless ? "unassigned" : undefined,
+    formerOwner: raw.formerOwner,
+    usage: `${usage}%`,
     seats: { active: raw.activeSeats, purchased: raw.purchasedSeats },
     yoyPercent: raw.yoyPercent,
     ...status,

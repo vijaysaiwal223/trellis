@@ -2,6 +2,7 @@
 
 import { addDays, type ISODate } from "../deadlines";
 import { dayMonth } from "@/lib/dates";
+import { Heading, Text } from "@medusajs/ui";
 
 export type UpcomingRenewal = { vendor: string; decideByISO: ISODate; value: string; owner: string | null };
 
@@ -17,15 +18,15 @@ export function AllClear({ upcoming }: { upcoming: UpcomingRenewal[] }) {
         <circle cx="12" cy="12" r="9" />
         <path d="M8 12.5l2.5 2.5 5.5-6" />
       </svg>
-      <h2 className="text-[18px] font-semibold text-[#18181b]">
+      <Heading level="h2" className="text-[18px] font-semibold text-[#18181b]">
         {enters ? `Nothing needs a decision until ${dayMonth(enters)}` : "Nothing needs a decision"}
-      </h2>
+      </Heading>
       {next ? (
-        <p className="max-w-[520px] text-[14px] text-[#52525b]">
+        <Text className="max-w-[520px] text-[14px] text-[#52525b]">
           {`${next.vendor} is the next to enter the queue${next.owner ? `. ${next.owner} will be asked for a recommendation that day.` : ", and nobody owns it yet."}`}
-        </p>
+        </Text>
       ) : (
-        <p className="max-w-[520px] text-[14px] text-[#52525b]">Every open renewal has been handled.</p>
+        <Text className="max-w-[520px] text-[14px] text-[#52525b]">Every open renewal has been handled.</Text>
       )}
       {upcoming.length > 0 ? (
         <div className="mt-[8px] w-full overflow-x-auto rounded-[8px] border border-solid border-[#e4e4e7]">

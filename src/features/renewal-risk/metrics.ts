@@ -30,7 +30,8 @@ type MetricDef = {
   isDollar: boolean;
   tone?: "danger";
   match: (entry: AssessedEntry) => boolean;
-  detail: (count: number) => string;
+  /** The line under the number. `names` are the vendors behind it. */
+  detail: (count: number, names: string[]) => string;
   withLogos?: boolean;
 };
 
@@ -41,7 +42,7 @@ const metricDefs: MetricDef[] = [
   {
     key: "decision30",
     icon: icon("imgElements4.svg", "inset-[5.21%]"),
-    label: "Open decision, next 30 days",
+    label: "Open decisions, next 30 days",
     isDollar: true,
     match: (entry) => !entry.resolved && entry.row.daysToCancelBy >= 0 && entry.row.daysToCancelBy <= 30,
     detail: (count) => plural(count, "contract"),
@@ -52,7 +53,7 @@ const metricDefs: MetricDef[] = [
     label: "Due this week",
     isDollar: true,
     match: (entry) => !entry.resolved && entry.row.daysToCancelBy >= 0 && entry.row.daysToCancelBy <= 7,
-    detail: (count) => plural(count, "contract"),
+    detail: (count, names) => `${plural(count, "contract")} · ${names.join(", ")}`,
   },
   {
     key: "noOwner",
@@ -70,7 +71,7 @@ const metricDefs: MetricDef[] = [
     isDollar: true,
     tone: "danger",
     match: (entry) => !entry.resolved && entry.row.daysToCancelBy < 0,
-    detail: (count) => `${plural(count, "contract")} • renew regardless`,
+    detail: (count) => `${plural(count, "contract")} · renews regardless`,
   },
 ];
 
@@ -93,7 +94,7 @@ export function deriveMetrics(assessed: AssessedEntry[]): RenewalMetric[] {
       icon: def.icon,
       label: def.label,
       value,
-      detail: def.detail(count),
+      detail: def.detail(count, [...matches].sort((a, b) => a.row.cancelByISO.localeCompare(b.row.cancelByISO)).map((entry) => entry.row.vendor)),
       count,
       tone: def.tone,
       logos,

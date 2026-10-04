@@ -9,6 +9,7 @@ import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
 import { addDays, addMonths, calendarDateIn, daysBetween, type ISODate } from "../deadlines";
 import { useAssessedRenewals } from "../use-assessed-renewals";
 import { renewals } from "../mock-data";
+import { Badge, Button, IconButton, Text, Textarea } from "@medusajs/ui";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -41,9 +42,6 @@ function Callout({ children }: { children: ReactNode }) {
 }
 
 const cardClass = "flex flex-col gap-[12px] rounded-[12px] border border-solid border-[#e4e4e7] bg-white px-[10px] py-[14px]";
-const neutralButton =
-  "flex h-[32px] items-center justify-center rounded-[8px] bg-white px-[10px] text-[14px] font-medium tracking-[-0.105px] whitespace-nowrap text-[#18181b] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)] hover:bg-[#f4f4f5] disabled:opacity-50";
-
 /**
  * Side drawer for a renewal whose notice deadline has passed. It states what happens
  * now, and offers the three things still possible. Each action uses the runtime, so
@@ -108,9 +106,7 @@ export function LockedInDrawer({ slug, onClose }: { slug: string; onClose: () =>
           <div className="flex flex-col gap-[4px]">
             <div className="flex items-start gap-[4px]">
               <span className="whitespace-nowrap text-[16px] font-medium leading-[20px] tracking-[-0.16px] text-[#18181b]">{row.vendor}</span>
-              <span className="flex items-center justify-center rounded-full border-[0.5px] border-solid border-[#fda4af] bg-[#ffe4e6] px-[6.5px] py-[2.5px] text-[12px] font-medium leading-[16px] tracking-[-0.06px] whitespace-nowrap text-[#9f1239]">
-                Locked in
-              </span>
+              <Badge color="red" size="xsmall" className="whitespace-nowrap">Locked in</Badge>
             </div>
             <div className="flex gap-[4px] text-[14px] leading-[16px] tracking-[-0.07px] whitespace-nowrap text-[#52525b]">
               <span>{row.subtitle}</span>
@@ -119,14 +115,9 @@ export function LockedInDrawer({ slug, onClose }: { slug: string; onClose: () =>
             </div>
           </div>
         </div>
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={onClose}
-          className="flex size-[28px] shrink-0 items-center justify-center rounded-[8px] border border-solid border-[#e4e4e7] bg-[#fafafa] text-[#52525b] hover:bg-[#f4f4f5]"
-        >
+        <IconButton variant="transparent" size="small" aria-label="Close" onClick={onClose}>
           <RiCloseLine className="size-4" />
-        </button>
+        </IconButton>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -207,27 +198,26 @@ export function LockedInDrawer({ slug, onClose }: { slug: string; onClose: () =>
             </div>
             {askOpen ? (
               <div className="flex flex-col gap-[8px]">
-                <textarea
+                <Textarea
                   value={response}
                   onChange={(event) => setResponse(event.target.value)}
                   aria-label="Vendor response"
                   rows={3}
                   placeholder="What did the vendor say?"
-                  className="w-full resize-none rounded-[6px] bg-white px-[8px] py-[6px] text-[14px] leading-[20px] text-[#18181b] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)] outline-none"
                 />
                 <div className="flex justify-end gap-[8px]">
-                  <button type="button" onClick={() => setAskOpen(false)} className={neutralButton}>
+                  <Button variant="secondary" size="small" onClick={() => setAskOpen(false)}>
                     Cancel
-                  </button>
-                  <button type="button" onClick={logResponse} disabled={!response.trim()} className={neutralButton}>
+                  </Button>
+                  <Button variant="secondary" size="small" onClick={logResponse} disabled={!response.trim()}>
                     Save response
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
-              <button type="button" onClick={() => setAskOpen(true)} className={`${neutralButton} w-fit`}>
+              <Button variant="secondary" size="small" className="w-fit" onClick={() => setAskOpen(true)}>
                 {logged ? "Log another response" : "Log vendor response"}
-              </button>
+              </Button>
             )}
           </div>
 
@@ -235,20 +225,15 @@ export function LockedInDrawer({ slug, onClose }: { slug: string; onClose: () =>
             <div className="flex flex-col gap-[8px] text-[14px] leading-[20px]">
               <span className="font-medium tracking-[-0.14px] text-[#18181b]">Plan the next cycle now</span>
               <span className="tracking-[-0.07px] text-[#52525b]">
-                {`Next decide-by: ${dayMonthYear(addDays(nextCancelBy, -14))}. It enters your queue 30 days earlier, on ${dayMonthYear(nextReviewOn)}, with ${owner === "No owner" ? "no owner yet" : firstName(owner) + " asked on day one"}.`}
+                {`Next decide-by: ${dayMonthYear(nextCancelBy)}. It enters your queue 30 days earlier, on ${dayMonthYear(nextReviewOn)}, with ${owner === "No owner" ? "no owner yet" : firstName(owner) + " asked on day one"}.`}
               </span>
               {scheduled ? (
                 <span className="text-[12px] text-[#52525b]">{`Scheduled for ${dayMonthYear(scheduled)}.`}</span>
               ) : null}
             </div>
-            <button
-              type="button"
-              disabled={Boolean(scheduled)}
-              onClick={() => scheduleNextCycle(row.id, nextReviewOn)}
-              className="flex h-[32px] w-fit items-center justify-center rounded-[8px] bg-[#2876f5] px-[10px] text-[14px] font-medium tracking-[-0.105px] whitespace-nowrap text-white shadow-[0px_0px_0px_1px_#0a5ce0] hover:bg-[#1f6be6] disabled:opacity-50"
-            >
+            <Button variant="primary" size="small" className="w-fit" disabled={Boolean(scheduled)} onClick={() => scheduleNextCycle(row.id, nextReviewOn)}>
               {scheduled ? "Review scheduled" : "Schedule next review"}
-            </button>
+            </Button>
           </div>
 
           <div className={cardClass}>
@@ -258,17 +243,17 @@ export function LockedInDrawer({ slug, onClose }: { slug: string; onClose: () =>
                 {`Moves ${row.vendor} to handle with a notice that the deadline was missed`}
               </span>
             </div>
-            <button type="button" onClick={() => { acceptAsIs(row.id); onClose(); }} className={`${neutralButton} w-fit`}>
+            <Button variant="secondary" size="small" className="w-fit" onClick={() => { acceptAsIs(row.id); onClose(); }}>
               Accept and close
-            </button>
+            </Button>
           </div>
         </div>
       </div>
 
       <div className="flex shrink-0 items-center gap-[12px] border-t border-solid border-[#e4e4e7] bg-[#fafafa] px-[16px] py-[12px]">
-        <p className="text-[14px] leading-[20px] tracking-[-0.035px] text-[#18181b]">
+        <Text className="text-[14px] leading-[20px] tracking-[-0.035px] text-[#18181b]">
           We don’t mark this as handled until you pick one, so it stays visible at the top of the queue.
-        </p>
+        </Text>
       </div>
     </div>
   );

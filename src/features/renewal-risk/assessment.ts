@@ -62,20 +62,12 @@ export function windowHeadline(days: number) {
   return `Cancel-by in ${plural(days, "day")}`;
 }
 
-export function assessRenewal(
-  seed: RenewalSeed,
-  assignedOwner?: string,
-  departedOwners: string[] = [],
-): Renewal {
-  // Someone who has left the company no longer counts as being in charge.
-  // This applies to reassigned owners too: a handoff target can leave as well.
-  const currentOwner = assignedOwner ?? seed.owner;
-  const departed = currentOwner !== null && departedOwners.includes(currentOwner);
-  const owner = departed ? null : currentOwner;
+export function assessRenewal(seed: RenewalSeed, assignedOwner?: string): Renewal {
+  const owner = assignedOwner ?? seed.owner;
   const ownerless = owner === null;
   const ownerStatus: Renewal["ownerStatus"] = !ownerless
     ? "active"
-    : departed || seed.vacancy === "departed"
+    : seed.vacancy === "departed"
       ? "departed"
       : "unassigned";
 
@@ -107,7 +99,7 @@ export function assessRenewal(
     id: toVendorSlug(seed.vendor),
     owner,
     team: ownerless ? null : assignedOwner ? (teamOf(assignedOwner) ?? "Assigned just now") : seed.team,
-    formerOwner: departed ? (currentOwner ?? undefined) : seed.formerOwner,
+    formerOwner: seed.formerOwner,
     ownerStatus,
     renewalDate: deadlines.renewalDate,
     noticeDays: seed.noticePeriodDays,

@@ -5,18 +5,19 @@ import Link from "next/link";
 import { OWNER_NAME } from "@/components/layout/profile-state";
 import { dayMonth } from "@/lib/dates";
 import { stamp } from "@/lib/clock";
-import { useSettings } from "@/lib/settings-state";
 import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
 import { useAssessedRenewals, renewalStage, renewals, type RenewalStage } from "@/features/renewal-risk";
 import { actionLabel } from "@/features/renewal-detail/types";
+import type { BadgeColor } from "@/features/renewal-risk/types";
+import { Badge, Button, Heading, Table, Text } from "@medusajs/ui";
 
-const statusFor: Partial<Record<RenewalStage, { label: string; tone: string }>> = {
-  "awaiting-owner": { label: "Needs your call", tone: "bg-ui-tag-orange-bg text-ui-tag-orange-text" },
-  "recommendation-in": { label: "Recommendation sent", tone: "bg-ui-tag-blue-bg text-ui-tag-blue-text" },
-  "ready-for-notice": { label: "With Anika", tone: "bg-ui-tag-blue-bg text-ui-tag-blue-text" },
-  "awaiting-outcome": { label: "With Anika", tone: "bg-ui-tag-blue-bg text-ui-tag-blue-text" },
-  handled: { label: "Decided", tone: "bg-ui-tag-green-bg text-ui-tag-green-text" },
-  "locked-in": { label: "Locked in", tone: "bg-ui-tag-red-bg text-ui-tag-red-text" },
+const statusFor: Partial<Record<RenewalStage, { label: string; color: BadgeColor }>> = {
+  "awaiting-owner": { label: "Needs your call", color: "orange" },
+  "recommendation-in": { label: "Recommendation sent", color: "blue" },
+  "ready-for-notice": { label: "With Anika", color: "blue" },
+  "awaiting-outcome": { label: "With Anika", color: "blue" },
+  handled: { label: "Decided", color: "green" },
+  "locked-in": { label: "Locked in", color: "red" },
 };
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -24,7 +25,6 @@ const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD",
 /** The owner's view: the tools they're accountable for, and the ones that need their call. */
 export function OwnerHome() {
   const { resolutions, recordRecommendation } = useRenewalRuntime();
-  const { rules } = useSettings();
   const assessed = useAssessedRenewals(renewals);
   const mine = assessed.filter((entry) => entry.row.owner === OWNER_NAME);
   // The owner is "assigned" by the lead in-app; email isn't sent, so this is the notice.
@@ -41,10 +41,10 @@ export function OwnerHome() {
   return (
     <div className="flex min-h-full w-full flex-col gap-[16px] p-[16px]">
       <div className="flex flex-col gap-[4px]">
-        <h1 className="text-[24px] font-semibold leading-[32px] text-ui-fg-base">My renewals</h1>
-        <p className="text-[14px] leading-[20px] text-ui-fg-subtle">
+        <Heading level="h1" className="text-[24px] font-semibold leading-[32px] text-ui-fg-base">My renewals</Heading>
+        <Text className="text-[14px] leading-[20px] text-ui-fg-subtle">
           Tools you own. You&apos;re asked for a recommendation only when a contract enters its decision window.
-        </p>
+        </Text>
       </div>
 
       {needsCall.length > 0 ? (
@@ -80,64 +80,55 @@ export function OwnerHome() {
       </div>
 
       <div className="w-full overflow-x-auto rounded-[8px] border border-solid border-ui-border-base bg-white">
-        <table className="w-full text-[14px]">
-          <thead className="bg-ui-bg-subtle">
-            <tr className="text-left text-[12px] text-ui-fg-subtle">
-              <th className="px-[12px] py-[10px] font-normal">Tool</th>
-              <th className="px-[12px] py-[10px] font-normal">Decide by</th>
-              <th className="px-[12px] py-[10px] text-right font-normal">Annual value</th>
-              <th className="px-[12px] py-[10px] font-normal">Status</th>
-              <th className="px-[12px] py-[10px] font-normal" />
-            </tr>
-          </thead>
-          <tbody>
+        <Table className="text-[14px]">
+          <Table.Header className="bg-ui-bg-subtle">
+            <Table.Row className="text-left text-[12px] text-ui-fg-subtle">
+              <Table.HeaderCell className="px-[12px] py-[10px] font-normal">Tool</Table.HeaderCell>
+              <Table.HeaderCell className="px-[12px] py-[10px] font-normal">Decide by</Table.HeaderCell>
+              <Table.HeaderCell className="px-[12px] py-[10px] text-right font-normal">Annual value</Table.HeaderCell>
+              <Table.HeaderCell className="px-[12px] py-[10px] font-normal">Status</Table.HeaderCell>
+              <Table.HeaderCell className="px-[12px] py-[10px] font-normal" />
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
             {mine.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-[12px] py-[24px] text-center text-ui-fg-muted">
+              <Table.Row>
+                <Table.Cell className="px-[12px] py-[24px] text-ui-fg-muted">
                   You don&apos;t own any tools yet.
-                </td>
-              </tr>
+                </Table.Cell>
+              </Table.Row>
             ) : null}
             {mine.map((entry) => {
               const stage = renewalStage(entry.row, resolutions[entry.slug]);
               // Past the decide-by date with no answer: the owner is overdue, not just asked.
-              // The reminder rule decides when an unanswered request is flagged as overdue.
-              const flagged =
-                stage === "awaiting-owner" &&
-                rules.reminder !== "never" &&
-                (rules.reminder === "on_due" ? entry.row.daysToDecideBy <= 0 : entry.row.daysToDecideBy < 0);
-              const escalated = stage === "awaiting-owner" && entry.row.daysToDecideBy < -rules.escalateAfterDays;
-              const overdue = flagged;
-              const status = escalated
-                ? { label: "Escalated to Anika", tone: "bg-ui-tag-red-bg text-ui-tag-red-text" }
-                : overdue
-                  ? { label: "Overdue", tone: "bg-ui-tag-red-bg text-ui-tag-red-text" }
-                  : statusFor[stage];
+              const overdue = stage === "awaiting-owner" && entry.row.daysToDecideBy < 0;
+              const status = overdue ? { label: "Overdue", color: "red" as const } : statusFor[stage];
               const recommendation = resolutions[entry.slug]?.recommendation;
               return (
-                <tr key={entry.slug} className="border-t border-solid border-ui-border-base">
-                  <td className="px-[12px] py-[12px]">
+                <Table.Row key={entry.slug} className="border-t border-solid border-ui-border-base">
+                  <Table.Cell className="px-[12px] py-[12px]">
                     <div className="flex flex-col">
                       <span className="font-medium text-ui-fg-base">{entry.row.vendor}</span>
                       <span className="text-[12px] text-ui-fg-subtle">{entry.row.subtitle}</span>
                     </div>
-                  </td>
-                  <td className="px-[12px] py-[12px] text-ui-fg-base">{dayMonth(entry.row.decideByISO)}</td>
-                  <td className="px-[12px] py-[12px] text-right text-ui-fg-base">{entry.row.contractAmount}</td>
-                  <td className="px-[12px] py-[12px]">
+                  </Table.Cell>
+                  <Table.Cell className="px-[12px] py-[12px] text-ui-fg-base">{dayMonth(entry.row.decideByISO)}</Table.Cell>
+                  <Table.Cell className="px-[12px] py-[12px] text-right text-ui-fg-base">{entry.row.contractAmount}</Table.Cell>
+                  <Table.Cell className="px-[12px] py-[12px]">
                     {status ? (
-                      <span className={`inline-flex rounded-full px-[8px] py-[2px] text-[12px] font-medium ${status.tone}`}>{status.label}</span>
+                      <Badge color={status.color} size="xsmall">{status.label}</Badge>
                     ) : null}
                     {recommendation ? (
                       <div className="mt-[3px] text-[12px] text-ui-fg-subtle">{`You recommended ${recommendation.targetOutcome ?? actionLabel(recommendation.action)}`}</div>
                     ) : null}
-                  </td>
-                  <td className="px-[12px] py-[12px] text-right">
+                  </Table.Cell>
+                  <Table.Cell className="px-[12px] py-[12px] text-right">
                     {stage === "awaiting-owner" ? (
                       <div className="flex items-center justify-end gap-[8px]">
                         {overdue ? (
-                          <button
-                            type="button"
+                          <Button
+                            variant="secondary"
+                            size="small"
                             onClick={() =>
                               recordRecommendation(entry.slug, {
                                 action: "Renew",
@@ -145,22 +136,21 @@ export function OwnerHome() {
                                 submittedAt: stamp(),
                               })
                             }
-                            className="h-[32px] rounded-[6px] bg-white px-[10px] text-[14px] font-medium text-ui-fg-base shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)]"
                           >
                             Renew as is
-                          </button>
+                          </Button>
                         ) : null}
-                        <Link href={`/owner/${entry.slug}`} className="inline-flex h-[32px] items-center rounded-[6px] bg-[#2876f5] px-[10px] text-[14px] font-medium text-white">
-                          Make your call
-                        </Link>
+                        <Button asChild variant="primary" size="small">
+                          <Link href={`/owner/${entry.slug}`}>Make your call</Link>
+                        </Button>
                       </div>
                     ) : null}
-                  </td>
-                </tr>
+                  </Table.Cell>
+                </Table.Row>
               );
             })}
-          </tbody>
-        </table>
+          </Table.Body>
+        </Table>
       </div>
     </div>
   );

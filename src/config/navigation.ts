@@ -33,10 +33,3 @@ export const ownerNavItems: NavItem[] = [
   { label: "My renewals", icon: icon("imgElements.svg"), iconOuter: "inset-[5.21%]", href: "/owner" },
   { label: "Subscriptions", icon: icon("imgElements1.svg"), iconOuter: "inset-[8.33%_7.54%_8.33%_9.13%]", iconInner: "inset-[-4.5%_-4.51%_-4.5%_-4.5%]" },
 ];
-
-/** Renewal settings for admins. */
-export const adminNavItems: NavItem[] = [
-  { label: "Ownership", icon: icon("imgElements2.svg"), iconOuter: "inset-[10.42%_2.08%]", href: "/admin" },
-  { label: "Contract data", icon: icon("imgElements1.svg"), iconOuter: "inset-[8.33%_7.54%_8.33%_9.13%]", iconInner: "inset-[-4.5%_-4.51%_-4.5%_-4.5%]", href: "/admin/data" },
-  { label: "Renewal rules", icon: icon("imgElements3.svg"), iconOuter: "inset-[5.21%]", href: "/admin/rules" },
-];
