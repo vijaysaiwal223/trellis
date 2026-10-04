@@ -100,7 +100,7 @@ export function AiAssistantPanel({
       }
     } catch {
       if (requestRef.current === controller) {
-        finish({ answer: streamedAnswer.trim() || portfolioFallback(mode, context.facts) });
+        finish({ answer: streamedAnswer.trim() || `Bruno is unavailable right now, so this is an offline summary from the renewal data. ${portfolioFallback(mode, context.facts)}` });
       }
     } finally {
       clearTimeout(timeout);
@@ -222,7 +222,7 @@ export function AiAssistantPanel({
             <Textarea id="renewal-ai-question" autoFocus value={question} onChange={(event) => setQuestion(event.target.value)}
               onKeyDown={onQuestionKeyDown} rows={3} maxLength={300}
               placeholder="Ask about your renewals…"
-              className="border-0 bg-transparent px-2 py-1 shadow-none focus:shadow-none"
+              className="!border-0 !bg-transparent !shadow-none hover:!bg-transparent focus-visible:!bg-transparent px-2 py-1"
             />
             <div className="flex items-center justify-between px-1 pb-1">
               <Text as="span" className="text-[11px] text-ui-fg-muted">Based on available data</Text>

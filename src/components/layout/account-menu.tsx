@@ -3,7 +3,7 @@
 import { Avatar, DropdownMenu } from "@medusajs/ui";
 import { useRouter } from "next/navigation";
 
-import { avatarUrl } from "@/config/people";
+import { personPhotoUrl } from "@/config/people";
 
 import { profileHome, profileIdentity, type Profile, useProfile } from "./profile-state";
 
@@ -12,7 +12,7 @@ const profiles: Profile[] = ["lead", "owner"];
 /** The profile's picture: a generated avatar for the person, with their initials as the fallback. */
 function ProfileAvatar({ profile, size }: { profile: Profile; size: "xsmall" | "small" }) {
   const identity = profileIdentity[profile];
-  return <Avatar src={avatarUrl(identity.name)} fallback={identity.initials} size={size} variant="rounded" />;
+  return <Avatar src={personPhotoUrl(identity.name)} fallback={identity.initials} size={size} variant="rounded" />;
 }
 
 /** The account card at the bottom of the sidebar. Its menu switches between the profiles. */

@@ -64,7 +64,7 @@ export function isAiPortfolioFacts(value: unknown): value is AiPortfolioFacts {
       (row.noticePeriod === undefined || (typeof row.noticePeriod === "string" && row.noticePeriod.length <= 30)) &&
       (row.yoyChange === undefined || (typeof row.yoyChange === "string" && row.yoyChange.length <= 30)) &&
       ["Critical", "High", "Medium", "Low"].includes(row.risk as string) &&
-      typeof row.usagePercent === "number" && Number.isFinite(row.usagePercent) && row.usagePercent >= 0 && row.usagePercent <= 100 &&
+      typeof row.usagePercent === "number" && Number.isFinite(row.usagePercent) && row.usagePercent >= 0 && row.usagePercent <= 1000 &&
       (row.purchasedSeats === undefined || (typeof row.purchasedSeats === "number" && Number.isInteger(row.purchasedSeats) && row.purchasedSeats >= 0)) &&
       (row.activeSeats === undefined || (typeof row.activeSeats === "number" && Number.isInteger(row.activeSeats) && row.activeSeats >= 0)) &&
       (row.possibleWaste === undefined || (typeof row.possibleWaste === "string" && row.possibleWaste.length <= 30)) &&

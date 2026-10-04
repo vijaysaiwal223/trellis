@@ -9,6 +9,7 @@ import type { BadgeColor, ContractType, RenewalSeed } from "./types";
 /** Vendors with a logo file under public/assets/figma/. Empty string means initials render instead. */
 const LOGO_EXTENSION: Partial<Record<string, string>> = {
   Slack: "png", Figma: "png", Zoom: "png", Jira: "png", Miro: "png", HubSpot: "png", Asana: "png",
+  Gong: "png", Tableau: "png",
 };
 
 /**

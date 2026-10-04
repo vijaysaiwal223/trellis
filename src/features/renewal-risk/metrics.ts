@@ -53,7 +53,8 @@ const metricDefs: MetricDef[] = [
     label: "Due this week",
     isDollar: true,
     match: (entry) => !entry.resolved && entry.row.daysToCancelBy >= 0 && entry.row.daysToCancelBy <= 7,
-    detail: (count, names) => `${plural(count, "contract")} · ${names.join(", ")}`,
+    detail: (count) => plural(count, "contract"),
+    withLogos: true,
   },
   {
     key: "noOwner",

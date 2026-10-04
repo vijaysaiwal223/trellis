@@ -1,7 +1,7 @@
 "use client";
 
 import { RiCloseLine } from "@remixicon/react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 
 import { actionLabel } from "@/features/renewal-detail/types";
 import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
@@ -12,6 +12,8 @@ import { useAssessedRenewals } from "../use-assessed-renewals";
 import { renewals } from "../mock-data";
 import type { Renewal } from "../types";
 import { Badge, Button, IconButton, Input, Textarea } from "@medusajs/ui";
+import { Alert } from "@/components/ui/alert";
+import { Stepper, renewalJourney } from "@/components/ui/stepper";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -31,18 +33,6 @@ const DECISION_WORDING: Record<string, string> = {
   Cancel: "Cancel",
 };
 
-function Callout({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex w-full items-center gap-[4px]">
-      <div className="flex h-full items-stretch self-stretch">
-        <div className="h-full w-[4px] rounded-full bg-[#10b981]" />
-      </div>
-      <div className="flex min-w-px flex-1 flex-col gap-[8px] rounded-bl-[4px] rounded-br-[8px] rounded-tl-[4px] rounded-tr-[8px] border-[0.5px] border-solid border-[#6ee7b7] bg-[#d1fae5] p-[12px] text-[14px] text-[#18181b]">
-        {children}
-      </div>
-    </div>
-  );
-}
 
 /**
  * Read-only view of a renewal that's been handled: the decision that was recorded,
@@ -105,15 +95,16 @@ export function HandledDrawer({ slug, onClose }: { slug: string; onClose: () => 
         </IconButton>
       </div>
 
+      <Stepper steps={renewalJourney} current={(decision?.confirmedAt ? renewalJourney.length : renewalJourney.length - 1)} />
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div className="flex flex-col gap-[12px] border-b border-solid border-[#e4e4e7] p-[16px]">
           <span className="text-[14px] font-medium leading-[20px] tracking-[-0.14px] text-[#18181b]">Decision recorded</span>
-          <Callout>
+          <Alert status="Success">
             <span className="font-medium leading-[20px] tracking-[-0.07px]">
               {decision.targetOutcome ? `${wording}: ${decision.targetOutcome}` : wording}
             </span>
             {decision.note ? <span className="leading-[20px] tracking-[-0.035px]">{`“${decision.note}”`}</span> : null}
-          </Callout>
+          </Alert>
           <div className="flex w-full items-start justify-between text-[14px] leading-[20px] whitespace-nowrap">
             <div className="flex flex-col gap-[4px]">
               <span className="text-[#52525b] tracking-[-0.07px]">Recorded</span>

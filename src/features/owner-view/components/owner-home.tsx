@@ -72,9 +72,9 @@ export function OwnerHome() {
           { label: "Annual spend", value: usd.format(annualSpend) },
           { label: "Unused seats", value: unusedSeats.toLocaleString("en-US") },
         ].map((card) => (
-          <div key={card.label} className="flex flex-col gap-[4px] rounded-[8px] border border-solid border-ui-border-base bg-white p-[14px_16px]">
-            <span className="text-[12px] text-ui-fg-subtle">{card.label}</span>
-            <span className="text-[22px] font-medium text-ui-fg-base">{card.value}</span>
+          <div key={card.label} className="flex flex-col gap-[8px] rounded-[8px] border border-solid border-ui-border-base bg-white p-[20px]">
+            <span className="text-[14px] leading-[20px] text-ui-fg-subtle">{card.label}</span>
+            <span className="text-[28px] font-semibold leading-[36px] text-ui-fg-base">{card.value}</span>
           </div>
         ))}
       </div>
@@ -82,7 +82,7 @@ export function OwnerHome() {
       <div className="w-full overflow-x-auto rounded-[8px] border border-solid border-ui-border-base bg-white">
         <Table className="text-[14px]">
           <Table.Header className="bg-ui-bg-subtle">
-            <Table.Row className="text-left text-[12px] text-ui-fg-subtle">
+            <Table.Row className="text-left text-[14px] text-ui-fg-subtle">
               <Table.HeaderCell className="px-[12px] py-[10px] font-normal">Tool</Table.HeaderCell>
               <Table.HeaderCell className="px-[12px] py-[10px] font-normal">Decide by</Table.HeaderCell>
               <Table.HeaderCell className="px-[12px] py-[10px] text-right font-normal">Annual value</Table.HeaderCell>
@@ -106,20 +106,20 @@ export function OwnerHome() {
               const recommendation = resolutions[entry.slug]?.recommendation;
               return (
                 <Table.Row key={entry.slug} className="border-t border-solid border-ui-border-base">
-                  <Table.Cell className="px-[12px] py-[12px]">
+                  <Table.Cell className="px-[16px] py-[16px]">
                     <div className="flex flex-col">
                       <span className="font-medium text-ui-fg-base">{entry.row.vendor}</span>
-                      <span className="text-[12px] text-ui-fg-subtle">{entry.row.subtitle}</span>
+                      <span className="text-[14px] leading-[20px] text-ui-fg-subtle">{entry.row.subtitle}</span>
                     </div>
                   </Table.Cell>
                   <Table.Cell className="px-[12px] py-[12px] text-ui-fg-base">{dayMonth(entry.row.decideByISO)}</Table.Cell>
                   <Table.Cell className="px-[12px] py-[12px] text-right text-ui-fg-base">{entry.row.contractAmount}</Table.Cell>
                   <Table.Cell className="px-[12px] py-[12px]">
                     {status ? (
-                      <Badge color={status.color} size="xsmall">{status.label}</Badge>
+                      <Badge color={status.color} size="base">{status.label}</Badge>
                     ) : null}
                     {recommendation ? (
-                      <div className="mt-[3px] text-[12px] text-ui-fg-subtle">{`You recommended ${recommendation.targetOutcome ?? actionLabel(recommendation.action)}`}</div>
+                      <div className="mt-[6px] text-[14px] leading-[20px] text-ui-fg-subtle">{`You recommended ${recommendation.targetOutcome ?? actionLabel(recommendation.action)}`}</div>
                     ) : null}
                   </Table.Cell>
                   <Table.Cell className="px-[12px] py-[12px] text-right">

@@ -1,17 +1,20 @@
 "use client";
 
 import { RiCloseLine } from "@remixicon/react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { actionLabel, type DecisionAction } from "@/features/renewal-detail/types";
-import { stamp } from "@/lib/clock";
+import { now, stamp } from "@/lib/clock";
 import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
 
-import { daysBetween, type ISODate } from "../deadlines";
+import { calendarDateIn, type ISODate } from "../deadlines";
+import { DeadlineTimeline } from "./deadline-timeline";
 import { useAssessedRenewals } from "../use-assessed-renewals";
 import { renewals } from "../mock-data";
 import type { Renewal } from "../types";
 import { Badge, Button, IconButton, Label, RadioGroup, Textarea } from "@medusajs/ui";
+import { Alert } from "@/components/ui/alert";
+import { Stepper, renewalJourney } from "@/components/ui/stepper";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -26,18 +29,6 @@ const firstName = (name: string) => name.split(" ")[0];
 const contractWord = (type: Renewal["contractType"]) =>
   type === "Auto-renew" ? "Auto-renew" : type === "Manual" ? "Manual" : "Month-to-month";
 
-function Callout({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex w-full items-center gap-[4px]">
-      <div className="flex h-full items-stretch self-stretch">
-        <div className="h-full w-[4px] rounded-full bg-[#3b82f6]" />
-      </div>
-      <div className="flex min-w-px flex-1 flex-col gap-[12px] rounded-bl-[4px] rounded-br-[8px] rounded-tl-[4px] rounded-tr-[8px] border-[0.5px] border-solid border-[#93c5fd] bg-[#dbeafe] p-[12px]">
-        {children}
-      </div>
-    </div>
-  );
-}
 
 type Choice = { key: string; label: string; action: DecisionAction; targetOutcome?: string };
 
@@ -86,10 +77,7 @@ export function RecommendationDrawer({ slug, onClose }: { slug: string; onClose:
   const owner = row.owner ?? "The owner";
   const ownerFirst = firstName(owner);
 
-  // Where today sits between the decide-by date and the renewal date.
-  const today = row.decideByISO < row.renewalDate ? row.decideByISO : row.renewalDate;
-  const spanDays = Math.max(1, daysBetween(today, row.renewalDate));
-  const decidePercent = Math.min(100, Math.max(0, (daysBetween(today, row.decideByISO) / spanDays) * 100));
+  const today = calendarDateIn(now(), "UTC");
 
   const targetSeats = /(\d+) seats/.exec(recommendation.targetOutcome ?? "")?.[1];
   const seats = row.seats;
@@ -151,31 +139,16 @@ export function RecommendationDrawer({ slug, onClose }: { slug: string; onClose:
         </IconButton>
       </div>
 
+      <Stepper steps={renewalJourney} current={2} />
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div className="flex flex-col gap-[12px] border-b border-solid border-[#e4e4e7] p-[16px]">
           <span className="text-[14px] font-medium leading-[20px] tracking-[-0.14px] text-[#18181b]">Deadline</span>
-          <div className="flex h-[12px] w-full items-center overflow-clip rounded-[4px] bg-[#ffe9ea]">
-            <div className="flex h-full items-center rounded-[4px] bg-[#dae6fc]" style={{ width: `${decidePercent}%` }} />
-          </div>
-          <div className="flex w-full items-start justify-between text-center text-[12px] leading-[16px] whitespace-nowrap">
-            <div className="flex flex-col items-center">
-              <span className="tracking-[-0.03px] text-[#52525b]">Today</span>
-              <span className="font-medium tracking-[-0.06px] text-[#18181b]">{dayMonth(today)}</span>
-            </div>
-            <div className="flex flex-col items-center text-[#1e40af]">
-              <span className="tracking-[-0.03px]">Decide by</span>
-              <span className="font-medium tracking-[-0.06px]">{dayMonth(row.decideByISO)}</span>
-            </div>
-            <div className="flex flex-col items-center">
-              <span className="tracking-[-0.03px] text-[#52525b]">Renews</span>
-              <span className="font-medium tracking-[-0.06px] text-[#18181b]">{dayMonth(row.renewalDate)}</span>
-            </div>
-          </div>
+          <DeadlineTimeline row={row} today={today} />
         </div>
 
         <div className="flex flex-col gap-[16px] border-b border-solid border-[#e4e4e7] p-[16px]">
           <span className="text-[14px] font-medium leading-[20px] tracking-[-0.14px] text-[#18181b]">{`${ownerFirst} recommends`}</span>
-          <Callout>
+          <Alert status="Information">
             <div className="flex flex-col gap-[4px] text-[14px] text-[#18181b]">
               <span className="font-medium leading-[20px] tracking-[-0.07px]">
                 {recommendation.targetOutcome ?? actionLabel(recommendation.action)}
@@ -184,7 +157,7 @@ export function RecommendationDrawer({ slug, onClose }: { slug: string; onClose:
                 <span className="leading-[20px] tracking-[-0.035px]">{`“${recommendation.note}”`}</span>
               ) : null}
             </div>
-          </Callout>
+          </Alert>
           <div className="flex w-full items-start justify-between text-[14px] leading-[20px] whitespace-nowrap">
             <div className="flex flex-col gap-[4px]">
               <span className="text-[#52525b] tracking-[-0.07px]">Today</span>

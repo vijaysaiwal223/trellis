@@ -1,15 +1,18 @@
 "use client";
 
 import { RiCloseLine } from "@remixicon/react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 
 import { now } from "@/lib/clock";
 import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
 
-import { addDays, addMonths, calendarDateIn, daysBetween, type ISODate } from "../deadlines";
+import { addDays, addMonths, calendarDateIn, type ISODate } from "../deadlines";
 import { useAssessedRenewals } from "../use-assessed-renewals";
 import { renewals } from "../mock-data";
 import { Badge, Button, IconButton, Text, Textarea } from "@medusajs/ui";
+import { Alert } from "@/components/ui/alert";
+import { Stepper, recoveryJourney } from "@/components/ui/stepper";
+import { DeadlineTimeline } from "./deadline-timeline";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -28,18 +31,6 @@ const weekdayDayMonth = (iso: ISODate) => {
   return `${weekday} ${dayMonth(iso)}`;
 };
 
-function Callout({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex w-full items-center gap-[4px]">
-      <div className="flex h-full items-stretch self-stretch">
-        <div className="h-full w-[4px] rounded-full bg-[#f43f5e]" />
-      </div>
-      <div className="flex min-w-px flex-1 flex-col gap-[12px] rounded-bl-[4px] rounded-br-[8px] rounded-tl-[4px] rounded-tr-[8px] border-[0.5px] border-solid border-[#fda4af] bg-[#ffe4e6] p-[12px] text-[14px] text-[#18181b]">
-        {children}
-      </div>
-    </div>
-  );
-}
 
 const cardClass = "flex flex-col gap-[12px] rounded-[12px] border border-solid border-[#e4e4e7] bg-white px-[10px] py-[14px]";
 /**
@@ -68,9 +59,6 @@ export function LockedInDrawer({ slug, onClose }: { slug: string; onClose: () =>
   if (!row) return null;
 
   const today = calendarDateIn(now(), "UTC");
-  // How far through the contract year we are: the bar fills as the renewal approaches.
-  const yearStart = addMonths(row.renewalDate, -12);
-  const elapsedPercent = Math.min(100, Math.max(0, (daysBetween(yearStart, today) / Math.max(1, daysBetween(yearStart, row.renewalDate))) * 100));
 
   const nextCancelBy = addMonths(row.cancelByISO, 12);
   const nextReviewOn = addDays(nextCancelBy, -30);
@@ -120,12 +108,13 @@ export function LockedInDrawer({ slug, onClose }: { slug: string; onClose: () =>
         </IconButton>
       </div>
 
+      <Stepper steps={recoveryJourney} current={1} />
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div className="flex flex-col gap-[12px] border-b border-solid border-[#e4e4e7] p-[16px]">
           <span className="text-[14px] font-medium leading-[20px] tracking-[-0.14px] text-[#18181b]">
             The notice deadline has passed
           </span>
-          <Callout>
+          <Alert status="Error">
             <span className="font-medium leading-[20px] tracking-[-0.105px]">
               {`${row.vendor}’s ${row.noticeDays}-day notice deadline was ${weekdayDayMonth(row.cancelByISO)}.`}
             </span>
@@ -134,24 +123,8 @@ export function LockedInDrawer({ slug, onClose }: { slug: string; onClose: () =>
                 yoy !== undefined && yoy > 0 ? `, ${yoy}% more than last year` : ""
               }. Under the contract it’s now too late to cancel or reduce seats for this term.`}
             </span>
-          </Callout>
-          <div className="flex h-[12px] w-full items-center overflow-clip rounded-[4px] bg-[#ffe9ea]">
-            <div className="flex h-full rounded-[4px] bg-[#dae6fc]" style={{ width: `${elapsedPercent}%` }} />
-          </div>
-          <div className="flex w-full items-start justify-between text-center text-[12px] leading-[16px] whitespace-nowrap">
-            <div className="flex flex-col items-center">
-              <span className="tracking-[-0.03px] text-[#52525b]">Today</span>
-              <span className="font-medium tracking-[-0.06px] text-[#18181b]">{dayMonth(today)}</span>
-            </div>
-            <div className="flex flex-col items-center text-[#1e40af]">
-              <span className="tracking-[-0.03px]">Decide by</span>
-              <span className="font-medium tracking-[-0.06px]">{dayMonth(row.decideByISO)}</span>
-            </div>
-            <div className="flex flex-col items-center">
-              <span className="tracking-[-0.03px] text-[#52525b]">Renews</span>
-              <span className="font-medium tracking-[-0.06px] text-[#18181b]">{dayMonth(row.renewalDate)}</span>
-            </div>
-          </div>
+          </Alert>
+          <DeadlineTimeline row={row} today={today} />
         </div>
 
         <div className="flex flex-col gap-[12px] border-b border-solid border-[#e4e4e7] p-[16px]">

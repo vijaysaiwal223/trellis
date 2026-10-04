@@ -6,6 +6,7 @@ export { AllClear, type UpcomingRenewal } from "./components/all-clear";
 export { LockedInDrawer } from "./components/locked-in-drawer";
 export { NoticeDrawer } from "./components/notice-drawer";
 export { RecommendationDrawer } from "./components/recommendation-drawer";
+export { SelfDecisionDrawer } from "./components/self-decision-drawer";
 export { MetricsSummary } from "./components/metrics-summary";
 export { RenewalsTable } from "./components/renewals-table";
 export { renewalStage, stageLabel } from "./stage";

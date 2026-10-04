@@ -144,7 +144,7 @@ export function RenewalRow({
 
   return (
     <div className={`flex w-full items-start ${selected ? "bg-[#f0f6fe] shadow-[inset_2px_0_0_0_#2876f5]" : ""}`}>
-      <div className="flex w-[200px] shrink-0 items-center gap-[12px] overflow-clip border-b border-solid border-[#e4e4e7] p-[12px]">
+      <div className="flex h-[64px] w-[200px] shrink-0 items-center gap-[12px] overflow-clip border-b border-solid border-[#e4e4e7] p-[12px]">
         <span className="relative flex size-[40px] shrink-0 items-center justify-center overflow-clip rounded-[6px] bg-white p-px shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)]">
           {row.logo ? (
             <img alt="" className="size-full rounded-[5px] object-cover" src={row.logo} />
@@ -191,7 +191,7 @@ export function RenewalRow({
         <span className="whitespace-nowrap">{yoy === undefined ? "—" : `${yoy > 0 ? "+" : ""}${yoy}%`}</span>
       </div>
 
-      <div className={`${cell} min-w-[100px] flex-1 items-center text-[14px] leading-[20px] tracking-[-0.105px]`}>
+      <div className={`${cell} w-[160px] items-center text-[14px] leading-[20px] tracking-[-0.105px]`}>
         <span className="flex min-w-px flex-1 flex-col items-start whitespace-nowrap">
           {row.owner ? (
             <>
@@ -209,7 +209,7 @@ export function RenewalRow({
         </span>
       </div>
 
-      <div className={`${cell} w-[152px] flex-col items-start justify-center gap-[4px] px-[8px]`}>
+      <div className={`${cell} min-w-[200px] flex-1 flex-col items-start justify-center gap-[4px] px-[8px]`}>
         <Badge color={stageColor[stage]} size="xsmall" className="whitespace-nowrap">
           {stageLabel[stage]}
         </Badge>

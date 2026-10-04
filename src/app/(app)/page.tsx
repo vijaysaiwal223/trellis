@@ -1,5 +1,6 @@
 "use client";
 
+import { Alert } from "@/components/ui/alert";
 import { Button, Heading, Input, Tabs, Text } from "@medusajs/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -17,6 +18,7 @@ import {
   LockedInDrawer,
   NoticeDrawer,
   RecommendationDrawer,
+  SelfDecisionDrawer,
   renewalStage,
   RenewalsTable,
   deriveMetrics,
@@ -27,7 +29,7 @@ import {
   type RenewalStage,
 } from "@/features/renewal-risk";
 
-type DrawerKind = "assign" | "review" | "locked" | "handled" | "notice";
+type DrawerKind = "assign" | "review" | "self" | "locked" | "handled" | "notice";
 
 const todayLabel = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
   .format(now())
@@ -67,6 +69,7 @@ export default function RenewalRiskPage() {
     const element =
       kind === "assign" ? <AssignOwnerDrawer key={`assign-${slug}`} slug={slug} onClose={closeDrawer} />
       : kind === "review" ? <RecommendationDrawer key={`review-${slug}`} slug={slug} onClose={closeDrawer} />
+      : kind === "self" ? <SelfDecisionDrawer key={`self-${slug}`} slug={slug} onClose={closeDrawer} />
       : kind === "locked" ? <LockedInDrawer key={`locked-${slug}`} slug={slug} onClose={closeDrawer} />
       : kind === "notice" ? (
         <NoticeDrawer
@@ -129,20 +132,23 @@ export default function RenewalRiskPage() {
   return (
     <div className="flex min-h-full w-full flex-col">
       {notice ? (
-        <div role="status" className="mx-[16px] mt-[16px] flex flex-wrap items-center justify-between gap-[12px] rounded-[10px] border border-solid border-[#a7f3d0] bg-[#ecfdf5] px-[16px] py-[12px] text-[14px] text-[#065f46]">
-          <span>
-            <span className="font-semibold">{`${notice.vendor} notice sent ${notice.date}.`}</span>
-            {` Sent by ${SIGNED_IN_NAME}. It stays open until the vendor's outcome is confirmed.`}
-          </span>
-          <span className="flex items-center gap-[8px]">
-            <Button variant="secondary" size="small" onClick={() => { setDrawer({ kind: "handled", slug: notice.slug }); setNotice(null); }}>
-              View record
-            </Button>
-            <Button variant="secondary" size="small" onClick={() => setNotice(null)}>
-              Dismiss
-            </Button>
-          </span>
-        </div>
+        <Alert
+          status="Success"
+          title={`${notice.vendor} notice sent ${notice.date}.`}
+          className="mx-[16px] mt-[16px]"
+          actions={
+            <>
+              <Button variant="transparent" size="small" onClick={() => { setDrawer({ kind: "handled", slug: notice.slug }); setNotice(null); }}>
+                View record
+              </Button>
+              <Button variant="transparent" size="small" onClick={() => setNotice(null)}>
+                Dismiss
+              </Button>
+            </>
+          }
+        >
+          {`Sent by ${SIGNED_IN_NAME}. It stays open until the vendor's outcome is confirmed.`}
+        </Alert>
       ) : null}
       <header className="flex shrink-0 items-center justify-between px-[16px] py-[20px]">
         <div className="flex flex-col gap-[8px]">
@@ -204,6 +210,7 @@ export default function RenewalRiskPage() {
             const kind: DrawerKind | null =
               stage === "locked-in" ? "locked"
               : stage === "recommendation-in" ? "review"
+              : stage === "awaiting-owner" && row.owner === SIGNED_IN_NAME ? "self"
               : stage === "awaiting-owner" || stage === "no-owner" ? "assign"
               : stage === "ready-for-notice" ? "notice"
               : stage === "handled" || stage === "awaiting-outcome" ? "handled"

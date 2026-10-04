@@ -45,7 +45,7 @@ const windowGroups: { key: string; label: string; fits: (daysToCancelBy: number)
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 // Column widths from the design. The owner column takes whatever width is left.
-const columnWidth = ["w-[200px]", "w-[104px]", "w-[200px]", "w-[112px]", "w-[120px]", "w-[64px]", "min-w-[100px] flex-1", "w-[152px]", "w-[100px]"];
+const columnWidth = ["w-[200px]", "w-[104px]", "w-[200px]", "w-[112px]", "w-[120px]", "w-[64px]", "w-[160px]", "min-w-[200px] flex-1", "w-[100px]"];
 const rightAligned = new Set(["Annual value", "YoY"]);
 
 export function RenewalsTable({ renewals, filterKey, onClearFilter, stageMatch, selectedId, onAssign, onOpen, upcoming = [] }: RenewalsTableProps) {
@@ -99,7 +99,7 @@ export function RenewalsTable({ renewals, filterKey, onClearFilter, stageMatch, 
         </div>
       ) : null}
       <div className="w-full overflow-x-auto">
-        <div className="flex min-w-[1152px] flex-col items-start overflow-clip rounded-[12px] border border-solid border-[#e4e4e7]">
+        <div className="flex min-w-[1260px] flex-col items-start overflow-clip rounded-[12px] border border-solid border-[#e4e4e7]">
           <div className="flex w-full items-start overflow-clip bg-[#fafafa]">
             {renewalTableHeaders.map((header, index) => (
               <div

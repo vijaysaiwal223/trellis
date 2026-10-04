@@ -1,10 +1,10 @@
 "use client";
 
 import { RiCloseLine } from "@remixicon/react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { iconPath } from "@/lib/assets";
-import { avatarUrl, people, SIGNED_IN_NAME, teamOf } from "@/config/people";
+import { people, personPhotoUrl, SIGNED_IN_NAME, teamOf } from "@/config/people";
 import { now, stamp } from "@/lib/clock";
 import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
 
@@ -13,7 +13,9 @@ import { ASK_OWNER_DAYS_BEFORE } from "../constants";
 import { useAssessedRenewals } from "../use-assessed-renewals";
 import { renewals } from "../mock-data";
 import type { Renewal } from "../types";
-import { Badge, Button, Checkbox, IconButton, Input, Label, RadioGroup, Textarea } from "@medusajs/ui";
+import { Avatar, Badge, Button, Checkbox, IconButton, Input, Label, RadioGroup, Textarea } from "@medusajs/ui";
+import { Alert } from "@/components/ui/alert";
+import { Stepper, renewalJourney } from "@/components/ui/stepper";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -36,18 +38,6 @@ const initials = (name: string) => name.split(" ").map((part) => part[0]).join("
 const contractWord = (type: Renewal["contractType"]) =>
   type === "Auto-renew" ? "auto" : type === "Manual" ? "manual" : "month-to-month";
 
-function Callout({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex w-full items-center gap-[4px]">
-      <div className="flex h-full items-stretch self-stretch">
-        <div className="h-full w-[4px] rounded-full bg-[#f97316]" />
-      </div>
-      <div className="flex min-w-px flex-1 flex-col gap-[12px] rounded-bl-[4px] rounded-br-[8px] rounded-tl-[4px] rounded-tr-[8px] border-[0.5px] border-solid border-[#fdba74] bg-[#ffedd5] p-[12px]">
-        {children}
-      </div>
-    </div>
-  );
-}
 
 /**
  * Right-hand drawer for assigning the owner of one renewal. Everything in it comes
@@ -161,14 +151,15 @@ export function AssignOwnerDrawer({ slug, onClose }: { slug: string; onClose: ()
         </IconButton>
       </div>
 
+      <Stepper steps={renewalJourney} current={0} />
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div className="flex flex-col gap-[12px] border-b border-solid border-[#e4e4e7] p-[16px]">
           <span className="text-[14px] font-medium leading-[20px] tracking-[-0.14px] text-[#18181b]">
             {`Assign an owner for ${row.vendor}`}
           </span>
-          <Callout>
+          <Alert status="Warning">
             <span className="text-[14px] font-medium leading-[20px] tracking-[-0.07px] text-[#18181b]">
-              Why this need an owner now
+              Why this needs an owner now
             </span>
             <span className="text-[14px] leading-[20px] tracking-[-0.07px] text-[#18181b]">
               {formerOwner && row.ownerStatus === "departed"
@@ -178,7 +169,7 @@ export function AssignOwnerDrawer({ slug, onClose }: { slug: string; onClose: ()
               <span className="font-semibold">{weekdayDayMonth(row.cancelByISO)}</span>
               {`, ${windowLine}`}
             </span>
-          </Callout>
+          </Alert>
           <div className="grid h-[127px] w-full shrink-0 grid-cols-2 grid-rows-2 overflow-clip rounded-[12px] border border-solid border-[#e4e4e7] bg-white text-[14px] leading-[20px] whitespace-nowrap">
             <div className="flex flex-col gap-[4px] border-b border-r border-solid border-[#e4e4e7] p-[12px]">
               <span className="text-[#52525b] tracking-[-0.07px]">Decided by</span>
@@ -209,21 +200,23 @@ export function AssignOwnerDrawer({ slug, onClose }: { slug: string; onClose: ()
 
         <div className="flex flex-col gap-[12px] border-b border-solid border-[#e4e4e7] p-[16px]">
           {noOwner && row.daysToCancelBy >= 0 && row.daysToCancelBy <= 2 ? (
-            <div role="alert" className="flex flex-col gap-[8px] rounded-[8px] bg-[#ffe4e6] p-[12px] text-[13px] text-[#9f1239]">
-              <span className="font-medium">{`Nobody owns ${row.vendor} and ${row.daysToCancelBy} day${row.daysToCancelBy === 1 ? "" : "s"} are left.`}</span>
-              <span>You can decide it yourself now, or pick an owner below.</span>
-              <Button variant="secondary" size="small" className="w-fit" onClick={() => {
+            <Alert
+              status="Error"
+              title={`Nobody owns ${row.vendor} and ${row.daysToCancelBy} day${row.daysToCancelBy === 1 ? "" : "s"} are left.`}
+              actions={
+                <Button variant="secondary" size="small" onClick={() => {
                 assignOwner(row.id, SIGNED_IN_NAME);
                 onClose();
-              }}>
-                Decide it myself
-              </Button>
-            </div>
+                }}>
+                  Decide it myself
+                </Button>
+              }
+            >
+              You can decide it yourself now, or pick an owner below.
+            </Alert>
           ) : null}
           {noOwner && row.contractType === "Manual" ? (
-            <div className="rounded-[8px] bg-[#ffedd5] p-[12px] text-[13px] text-[#5a2c00]">
-              Manual renewal: if nobody acts, it lapses on its own terms.
-            </div>
+            <Alert status="Warning">Manual renewal: if nobody acts, it lapses on its own terms.</Alert>
           ) : null}
           <span className="text-[14px] font-medium leading-[20px] tracking-[-0.14px] text-[#18181b]">Choose who decides</span>
           <div className="flex w-full flex-col gap-[8px]">
@@ -244,7 +237,7 @@ export function AssignOwnerDrawer({ slug, onClose }: { slug: string; onClose: ()
                 : "Anyone in the directory can take this on."}
             </span>
           </div>
-          <RadioGroup value={chosen ?? undefined} onValueChange={choose} aria-label="Who decides" className="flex w-full items-stretch overflow-clip rounded-[12px] border border-solid border-[#e4e4e7] bg-white">
+          <RadioGroup value={chosen ?? undefined} onValueChange={choose} aria-label="Who decides" className="!gap-0 flex w-full items-stretch overflow-clip rounded-[12px] border border-solid border-[#e4e4e7] bg-white">
             <div className="flex w-[40px] shrink-0 flex-col">
               <div className="h-[40px] border-b border-solid border-[#e4e4e7] bg-[#f4f4f5]" />
               {visibleCandidates.map((person) => (
@@ -266,13 +259,7 @@ export function AssignOwnerDrawer({ slug, onClose }: { slug: string; onClose: ()
                     onClick={() => choose(person.name)}
                     className="flex h-[56px] items-center gap-[12px] overflow-clip border-b border-solid border-[#e4e4e7] px-[12px] py-[8px] text-left hover:bg-[#fafafa]"
                   >
-                    <span className="relative flex size-[32px] shrink-0 items-center justify-center overflow-clip rounded-full bg-white p-px shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)]">
-                      {person.you ? (
-                        <span className="text-[11px] font-medium text-[#52525b]">{initials(person.name)}</span>
-                      ) : (
-                        <img alt="" className="size-full rounded-full object-cover" src={avatarUrl(person.name)} />
-                      )}
-                    </span>
+                    <Avatar src={personPhotoUrl(person.name)} fallback={initials(person.name)} size="base" variant="rounded" />
                     <span className="flex min-w-px flex-col text-[14px] leading-[20px] whitespace-nowrap">
                       <span className="flex items-center gap-[8px]">
                         <span className="font-medium tracking-[-0.105px] text-[#18181b]">

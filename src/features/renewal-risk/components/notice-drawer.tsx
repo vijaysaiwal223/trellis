@@ -6,20 +6,21 @@ import { useEffect, useMemo, useState } from "react";
 import { SIGNED_IN_NAME } from "@/config/people";
 import { actionLabel } from "@/features/renewal-detail/types";
 import { now, stamp } from "@/lib/clock";
+import { dayMonth } from "@/lib/dates";
 import { noticeMethods, useRenewalRuntime, type NoticeMethod } from "@/lib/renewal-runtime-state";
 
 import { calendarDateIn, daysBetween, type ISODate } from "../deadlines";
 import { useAssessedRenewals } from "../use-assessed-renewals";
 import { renewals } from "../mock-data";
 import { Badge, Button, IconButton, Input, Label, Select, Textarea } from "@medusajs/ui";
+import { Alert } from "@/components/ui/alert";
+import { Stepper, renewalJourney } from "@/components/ui/stepper";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const dayMonthYear = (iso: ISODate) => {
   const [year, month, day] = iso.split("-").map(Number);
   return `${day} ${MONTHS[month - 1]} ${year}`;
 };
-
-const steps = ["Decided", "Send notice", "Handled"] as const;
 
 /**
  * Written notice for a decision that changes the contract. The decision isn't binding
@@ -51,7 +52,6 @@ export function NoticeDrawer({ slug, onClose, onSent }: { slug: string; onClose:
 
   const [text, setText] = useState<string | null>(null);
   const [method, setMethod] = useState<NoticeMethod>(noticeMethods[0]);
-  const [reference, setReference] = useState("");
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -78,7 +78,7 @@ export function NoticeDrawer({ slug, onClose, onSent }: { slug: string; onClose:
   };
 
   const markSent = () => {
-    recordNotice(row.id, { sentAt: stamp(), method, reference: reference || undefined });
+    recordNotice(row.id, { sentAt: stamp(), method });
     onSent?.(row.vendor);
     onClose();
   };
@@ -86,48 +86,40 @@ export function NoticeDrawer({ slug, onClose, onSent }: { slug: string; onClose:
   return (
     <div className="flex h-full w-full flex-col overflow-clip rounded-[12px] border border-solid border-[#e4e4e7] bg-white">
       <div className="flex shrink-0 items-start justify-between border-b border-solid border-[#e4e4e7] p-[16px]">
-        <div className="flex flex-col gap-[4px]">
-          <div className="flex items-center gap-[6px]">
-            <span className="text-[16px] font-medium leading-[20px] tracking-[-0.16px] text-[#18181b]">{`Send notice to ${row.vendor}`}</span>
-            <Badge color="orange" size="xsmall">Send notice</Badge>
+        <div className="flex items-start gap-[10px]">
+          <div className="flex size-[40px] shrink-0 items-center justify-center overflow-hidden rounded-[6px] bg-white p-[2px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)]">
+            {row.logo ? (
+              <img alt="" src={row.logo} className="size-full rounded-[5px] object-cover" />
+            ) : (
+              <span className="text-[12px] font-medium text-[#52525b]">{row.vendor.slice(0, 2).toUpperCase()}</span>
+            )}
           </div>
-          <span className="text-[14px] leading-[16px] text-[#52525b]">{`Decision: ${actionLabel(decision.action)}${decision.targetOutcome ? ` (${decision.targetOutcome})` : ""}`}</span>
+          <div className="flex flex-col gap-[4px]">
+            <div className="flex flex-wrap items-center gap-[6px]">
+              <span className="text-[16px] font-medium leading-[20px] tracking-[-0.16px] text-[#18181b]">{`Send notice to ${row.vendor}`}</span>
+              <Badge color="orange" size="xsmall">Send notice</Badge>
+            </div>
+            <span className="text-[14px] leading-[16px] text-[#52525b]">
+              {`Decision: ${decision.targetOutcome ?? actionLabel(decision.action)} • recorded by you, ${dayMonth(decision.recordedAt?.slice(0, 10) ?? today)}`}
+            </span>
+          </div>
         </div>
         <IconButton variant="transparent" size="small" aria-label="Close" onClick={onClose}>
           <RiCloseLine className="size-4" />
         </IconButton>
       </div>
 
-      <ol className="flex shrink-0 items-center gap-[8px] border-b border-solid border-[#e4e4e7] px-[16px] py-[12px] text-[12px]">
-        {steps.map((step, index) => (
-          <li key={step} className="flex items-center gap-[6px]">
-            <span
-              className={`flex size-[20px] items-center justify-center rounded-full text-[11px] ${
-                index === 0 ? "bg-[#065f46] text-white" : index === 1 ? "bg-[#2563eb] text-white" : "bg-[#f4f4f5] text-[#52525b]"
-              }`}
-            >
-              {index === 0 ? "✓" : index + 1}
-            </span>
-            <span className={index === 1 ? "font-medium text-[#18181b]" : "text-[#52525b]"}>{step}</span>
-          </li>
-        ))}
-      </ol>
+      <Stepper steps={renewalJourney} current={3} />
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <div className="flex flex-col gap-[12px] border-b border-solid border-[#e4e4e7] p-[16px]">
+        <div className="flex flex-col gap-[16px] border-b border-solid border-[#e4e4e7] p-[16px]">
           <span className="text-[14px] font-medium leading-[20px] text-[#18181b]">{`Notice must reach ${row.vendor} by ${dayMonthYear(row.decideByISO)}`}</span>
-          <div className="rounded-[6px] bg-[#ffedd5] p-[10px] text-[13px] leading-[20px] text-[#5a2c00]">
-            {`The decision isn't binding until ${row.vendor} receives written notice. This stays in your queue until you confirm it was sent. ${daysLeft} day${daysLeft === 1 ? "" : "s"} left.`}
-          </div>
-          {daysLeft >= 0 && daysLeft <= 3 ? (
-            <div role="alert" className="rounded-[6px] bg-[#ffe4e6] p-[10px] text-[13px] font-medium text-[#9f1239]">
-              {`Reminder: the notice is due in ${daysLeft} day${daysLeft === 1 ? "" : "s"}. Send it before ${dayMonthYear(row.decideByISO)}.`}
-            </div>
-          ) : null}
+          <Alert status="Warning">{`The decision isn’t binding until ${row.vendor} receives written notice. This stays in your queue until you confirm it was sent ${daysLeft} day${daysLeft === 1 ? "" : "s"} left.`}</Alert>
         </div>
 
-        <div className="flex flex-col gap-[10px] border-b border-solid border-[#e4e4e7] p-[16px]">
+        <div className="flex flex-col gap-[12px] border-b border-solid border-[#e4e4e7] p-[16px]">
           <span className="text-[14px] font-medium text-[#18181b]">1. Copy the notice</span>
+          <span className="text-[14px] leading-[20px] text-[#18181b]">Draft from your decision. Fill in the bracketed parts from your contract.</span>
           <Textarea
             value={body}
             onChange={(event) => setText(event.target.value)}
@@ -143,20 +135,20 @@ export function NoticeDrawer({ slug, onClose, onSent }: { slug: string; onClose:
 
         <div className="flex flex-col gap-[10px] border-b border-solid border-[#e4e4e7] p-[16px]">
           <span className="text-[14px] font-medium text-[#18181b]">2. Send it the way your contract requires</span>
-          <span className="text-[13px] leading-[20px] text-[#18181b]">
+          <span className="text-[14px] leading-[20px] text-[#18181b]">
             Usually email to your account executive or the vendor&apos;s renewal portal. Trellis doesn&apos;t send notice for you.
           </span>
         </div>
 
-        <div className="flex flex-col gap-[10px] p-[16px]">
+        <div className="flex flex-col gap-[12px] p-[16px]">
           <span className="text-[14px] font-medium text-[#18181b]">3. Record that it was sent</span>
-          <div className="grid grid-cols-2 gap-[10px]">
-            <div className="flex flex-col gap-[4px]">
-              <Label size="small" weight="plus">Date sent</Label>
+          <div className="grid grid-cols-2 gap-[8px]">
+            <div className="flex flex-col gap-[6px]">
+              <Label size="small" weight="regular">Date sent</Label>
               <Input value={dayMonthYear(today)} readOnly />
             </div>
-            <div className="flex flex-col gap-[4px]">
-              <Label size="small" weight="plus">Sent via</Label>
+            <div className="flex flex-col gap-[6px]">
+              <Label size="small" weight="regular">Sent via</Label>
               <Select value={method} onValueChange={(value) => setMethod(value as NoticeMethod)}>
                 <Select.Trigger>
                   <Select.Value />
@@ -168,16 +160,6 @@ export function NoticeDrawer({ slug, onClose, onSent }: { slug: string; onClose:
                 </Select.Content>
               </Select>
             </div>
-          </div>
-          <div className="flex flex-col gap-[4px]">
-            <Label size="small" weight="plus">
-              Confirmation <span className="font-normal text-ui-fg-subtle">optional, e.g. the vendor&apos;s reply</span>
-            </Label>
-            <Input
-              value={reference}
-              onChange={(event) => setReference(event.target.value)}
-              placeholder="Reference or reply ID"
-            />
           </div>
         </div>
       </div>
