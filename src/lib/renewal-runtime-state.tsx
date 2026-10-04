@@ -17,6 +17,10 @@ import {
 } from "@/config/integrations";
 import type { DecisionAction } from "@/features/renewal-detail/types";
 import { stamp } from "@/lib/clock";
+import { formatLongISO } from "@/features/renewal-risk/deadlines";
+
+export const noticeMethods = ["Email to account executive", "Vendor portal", "Letter"] as const;
+export type NoticeMethod = (typeof noticeMethods)[number];
 
 export type DecisionRecord = {
   action: DecisionAction;
@@ -27,21 +31,63 @@ export type DecisionRecord = {
   followUpBy?: string;
   recordedAt?: string;
   confirmedAt?: string;
+  /** Written notice to the vendor, for answers that need one. */
+  noticeSentAt?: string;
+  noticeMethod?: NoticeMethod;
+  /** The vendor's confirmation reference (reply email, portal ID), if they gave one. */
+  vendorReference?: string;
   /** True while the decision is saved but not yet final — doesn't count as "resolved". */
   draft?: boolean;
 };
 
+/** A question the owner asked finance while answering. */
+export type OwnerQuestion = { at: string; text: string };
+
+/** The decision request sent to the owner, with the date their recommendation is needed by. */
+export type OwnerRequest = { sentAt: string; dueBy: string; from: string };
+
+/**
+ * The owner's answer. It is advice: finance or procurement reviews it and
+ * records the decision, which can differ.
+ */
+export type OwnerRecommendation = {
+  action: DecisionAction;
+  targetOutcome?: string;
+  note: string;
+  submittedAt: string;
+};
+
 export type RenewalResolution = {
   decision?: DecisionRecord;
+  recommendation?: OwnerRecommendation;
   ownerAssigned?: string;
+  /** Set when the owner was asked for a recommendation by a due date. */
+  ownerRequest?: OwnerRequest;
+  /** Assigned as the owner for future renewals of this vendor too. */
+  standingOwner?: boolean;
+  questions?: OwnerQuestion[];
+  /** Next review date, for a missed deadline that rolls into the next cycle. */
+  nextCycleReviewOn?: string;
   history?: DecisionEvent[];
 };
 
 export type DecisionEvent = {
   at: string;
-  label: "Draft saved" | "Decision recorded" | "Decision corrected" | "Outcome confirmed";
-  action: DecisionAction;
+  label:
+    | "Owner assigned"
+    | "Draft saved"
+    | "Recommendation sent"
+    | "Question asked"
+    | "Decision recorded"
+    | "Decision corrected"
+    | "Notice sent"
+    | "Vendor response logged"
+    | "Next cycle scheduled"
+    | "Outcome confirmed";
+  action?: DecisionAction;
   ownerName?: string;
+  /** Free text for the audit trail: the question, the vendor's response, the reference. */
+  note?: string;
 };
 
 /**
@@ -61,8 +107,18 @@ const STORAGE_KEY = "trellis-renewal-runtime-v1";
 type RenewalRuntimeContextValue = {
   /** Keyed by vendor slug (see @/lib/vendor-slug). */
   resolutions: Record<string, RenewalResolution>;
-  assignOwner: (slug: string, name: string) => void;
+  assignOwner: (slug: string, name: string, options?: AssignOptions) => void;
   confirmDecision: (slug: string, decision: DecisionRecord) => void;
+  /** The owner's advice. It doesn't close anything; the decision is still recorded separately. */
+  recordRecommendation: (slug: string, recommendation: OwnerRecommendation) => void;
+  /** Written notice went to the vendor. Only meaningful after a decision that needs notice. */
+  recordNotice: (slug: string, notice: { sentAt: string; method: NoticeMethod; reference?: string }) => void;
+  askOwnerQuestion: (slug: string, text: string) => void;
+  /** The vendor's answer to a request for a concession. The renewal stays open. */
+  logVendorResponse: (slug: string, text: string) => void;
+  scheduleNextCycle: (slug: string, reviewOn: string) => void;
+  /** Accept a missed-deadline renewal as it is. Recorded and confirmed in one step. */
+  acceptAsIs: (slug: string) => void;
   /** One-click links already used to record a decision; each works once. */
   usedTokens: string[];
   markTokenUsed: (token: string) => void;
@@ -80,6 +136,12 @@ type RenewalRuntimeContextValue = {
   updateIntegration: (id: IntegrationId, patch: Partial<IntegrationSettings>) => void;
 };
 
+export type AssignOptions = {
+  /** Ask the owner for a recommendation by this date. */
+  ownerRequest?: OwnerRequest;
+  standingOwner?: boolean;
+};
+
 const RenewalRuntimeContext = createContext<RenewalRuntimeContextValue | null>(null);
 
 /**
@@ -87,9 +149,24 @@ const RenewalRuntimeContext = createContext<RenewalRuntimeContextValue | null>(n
  * per-vendor detail pages and Settings. It survives reloads on this device;
  * a backend is still required for shared ownership and external delivery.
  */
+/**
+ * Demo starting point: one owner has already answered, so the "Recommendation in"
+ * status and its review drawer are reachable. Replaced by saved state once it exists.
+ */
+const demoResolutions: Record<string, RenewalResolution> = {
+  snowflake: {
+    recommendation: {
+      action: "Right-size",
+      targetOutcome: "Reduce to 70 seats",
+      note: "About 15 seats have been inactive for 30+ days. Keeping 70 covers the Q1 hires.",
+      submittedAt: "2026-09-25T10:00:00.000Z",
+    },
+  },
+};
+
 export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
   const [restored, setRestored] = useState(false);
-  const [resolutions, setResolutions] = useState<Record<string, RenewalResolution>>({});
+  const [resolutions, setResolutions] = useState<Record<string, RenewalResolution>>(demoResolutions);
   const [departedOwners, setDepartedOwners] = useState<string[]>([]);
   const [autoHandoff, setAutoHandoff] = useState(true);
   const [integrations, setIntegrations] = useState(defaultIntegrations);
@@ -135,11 +212,94 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
     }
   }, [restored, resolutions, departedOwners, autoHandoff, integrations, usedTokens]);
 
-  const assignOwner = useCallback((slug: string, name: string) => {
-    setResolutions((prev) => ({
-      ...prev,
-      [slug]: { ...prev[slug], ownerAssigned: name },
-    }));
+  const assignOwner = useCallback((slug: string, name: string, options?: AssignOptions) => {
+    setResolutions((prev) => {
+      const previous = prev[slug];
+      return {
+        ...prev,
+        [slug]: {
+          ...previous,
+          ownerAssigned: name,
+          ownerRequest: options?.ownerRequest ?? previous?.ownerRequest,
+          standingOwner: options?.standingOwner ?? previous?.standingOwner,
+          history: [
+            ...(previous?.history ?? []),
+            {
+              at: options?.ownerRequest?.sentAt ?? stamp(),
+              label: "Owner assigned",
+              ownerName: name,
+              note: options?.ownerRequest ? `Recommendation requested by ${options.ownerRequest.dueBy}` : undefined,
+            },
+          ],
+        },
+      };
+    });
+  }, []);
+
+  const appendEvent = useCallback((slug: string, event: DecisionEvent) => {
+    setResolutions((prev) => {
+      const previous = prev[slug];
+      return { ...prev, [slug]: { ...previous, history: [...(previous?.history ?? []), event] } };
+    });
+  }, []);
+
+  const askOwnerQuestion = useCallback((slug: string, text: string) => {
+    const at = stamp();
+    setResolutions((prev) => {
+      const previous = prev[slug];
+      return {
+        ...prev,
+        [slug]: {
+          ...previous,
+          questions: [...(previous?.questions ?? []), { at, text }],
+          history: [...(previous?.history ?? []), { at, label: "Question asked", ownerName: previous?.ownerAssigned, note: text }],
+        },
+      };
+    });
+  }, []);
+
+  const logVendorResponse = useCallback((slug: string, text: string) => {
+    appendEvent(slug, { at: stamp(), label: "Vendor response logged", note: text });
+  }, [appendEvent]);
+
+  const scheduleNextCycle = useCallback((slug: string, reviewOn: string) => {
+    setResolutions((prev) => {
+      const previous = prev[slug];
+      return {
+        ...prev,
+        [slug]: {
+          ...previous,
+          nextCycleReviewOn: reviewOn,
+          history: [...(previous?.history ?? []), { at: stamp(), label: "Next cycle scheduled", note: `Review on ${formatLongISO(reviewOn)}` }],
+        },
+      };
+    });
+  }, []);
+
+  const acceptAsIs = useCallback((slug: string) => {
+    const decision: DecisionRecord = {
+      action: "Renew",
+      note: "Notice deadline missed. Accepted as is.",
+      renewalStatus: "Renews as is",
+      recordedAt: stamp(),
+      confirmedAt: stamp(),
+    };
+    setResolutions((prev) => {
+      const previous = prev[slug];
+      const at = stamp();
+      return {
+        ...prev,
+        [slug]: {
+          ...previous,
+          decision: { ...decision, ownerName: previous?.ownerAssigned, recordedAt: at, confirmedAt: at },
+          history: [
+            ...(previous?.history ?? []),
+            { at, label: "Decision recorded", action: "Renew", ownerName: previous?.ownerAssigned, note: decision.note },
+            { at, label: "Outcome confirmed", action: "Renew", ownerName: previous?.ownerAssigned },
+          ],
+        },
+      };
+    });
   }, []);
 
   const confirmDecision = useCallback((slug: string, decision: DecisionRecord) => {
@@ -169,6 +329,48 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const recordRecommendation = useCallback((slug: string, recommendation: OwnerRecommendation) => {
+    setResolutions((prev) => {
+      const previous = prev[slug];
+      return {
+        ...prev,
+        [slug]: {
+          ...previous,
+          recommendation,
+          history: [
+            ...(previous?.history ?? []),
+            { at: recommendation.submittedAt, label: "Recommendation sent", action: recommendation.action, ownerName: previous?.ownerAssigned },
+          ],
+        },
+      };
+    });
+  }, []);
+
+  const recordNotice = useCallback((slug: string, notice: { sentAt: string; method: NoticeMethod; reference?: string }) => {
+    setResolutions((prev) => {
+      const previous = prev[slug];
+      if (!previous?.decision) return prev;
+      const reference = notice.reference?.trim() || undefined;
+      return {
+        ...prev,
+        [slug]: {
+          ...previous,
+          decision: { ...previous.decision, noticeSentAt: notice.sentAt, noticeMethod: notice.method, vendorReference: reference },
+          history: [
+            ...(previous.history ?? []),
+            {
+              at: notice.sentAt,
+              label: "Notice sent",
+              action: previous.decision.action,
+              ownerName: previous.decision.ownerName,
+              note: [notice.method, reference ? `Ref ${reference}` : null].filter(Boolean).join(" · "),
+            },
+          ],
+        },
+      };
+    });
+  }, []);
+
   const markTokenUsed = useCallback((token: string) => {
     setUsedTokens((prev) => (prev.includes(token) ? prev : [...prev, token]));
   }, []);
@@ -190,6 +392,12 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
       resolutions,
       assignOwner,
       confirmDecision,
+      recordRecommendation,
+      recordNotice,
+      askOwnerQuestion,
+      logVendorResponse,
+      scheduleNextCycle,
+      acceptAsIs,
       usedTokens,
       markTokenUsed,
       ready: restored,
@@ -205,6 +413,12 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
       resolutions,
       assignOwner,
       confirmDecision,
+      recordRecommendation,
+      recordNotice,
+      askOwnerQuestion,
+      logVendorResponse,
+      scheduleNextCycle,
+      acceptAsIs,
       usedTokens,
       markTokenUsed,
       restored,

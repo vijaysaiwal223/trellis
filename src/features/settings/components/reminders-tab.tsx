@@ -1,6 +1,7 @@
 "use client";
 
 import { Text } from "@medusajs/ui";
+import Link from "next/link";
 import { useState } from "react";
 
 import { renewals, useAssessedRenewals } from "@/features/renewal-risk";
@@ -22,6 +23,14 @@ export function RemindersTab() {
 
   return (
     <div className="flex w-full flex-col gap-4">
+      <SettingsCard
+        title="Monday digest"
+        description="The weekly summary of decisions due, past deadlines and open renewals without an owner."
+      >
+        <Link href="/digest" className="inline-flex text-[14px] font-medium text-ui-fg-interactive hover:underline">
+          Preview the Monday digest →
+        </Link>
+      </SettingsCard>
       <SettingsCard
         title="Reminder schedule"
         description="Counted back from the cancel-by date (renewal date minus notice period), not the renewal date."

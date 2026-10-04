@@ -7,18 +7,11 @@ export const SNAPSHOT_INSTANT = "2026-09-26T12:00:00Z";
 
 const LAST_STAMP_KEY = "trellis-clock-last-stamp";
 
-let override: Date | null = null;
 let lastStampMs = 0;
 
-/** The current instant. Pinned to the snapshot day; tests can override it. */
+/** The current instant: the snapshot day. */
 export function now(): Date {
-  return override ?? new Date(SNAPSHOT_INSTANT);
-}
-
-/** Test hook: pass a Date (or ISO string) to pin the clock, or null to reset. */
-export function setClockForTests(instant: Date | string | null) {
-  override = instant === null ? null : new Date(instant);
-  lastStampMs = 0;
+  return new Date(SNAPSHOT_INSTANT);
 }
 
 function readLast(): number {
@@ -38,8 +31,7 @@ function readLast(): number {
  * reloads without drifting out of the snapshot day.
  */
 export function stamp(): string {
-  const base = (override ?? new Date(SNAPSHOT_INSTANT)).getTime();
-  if (override) return new Date(base).toISOString();
+  const base = new Date(SNAPSHOT_INSTANT).getTime();
   const next = Math.max(readLast() + 1000, base);
   lastStampMs = next;
   try {

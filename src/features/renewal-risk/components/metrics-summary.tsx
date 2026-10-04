@@ -12,7 +12,7 @@ export function MetricsSummary({
   onSelectFilter?: (key: MetricKey) => void;
 }) {
   return (
-    <section className="mt-6 flex w-full flex-nowrap gap-2">
+    <section className="flex w-full flex-nowrap items-start gap-[8px] px-[16px] py-[12px]">
       {metrics.map((metric) => (
         <MetricCard
           key={metric.key}

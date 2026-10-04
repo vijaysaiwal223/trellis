@@ -74,7 +74,7 @@ function IntegrationCard({
                   Message owners directly
                 </Text>
                 <Text as="span" className="text-ui-fg-subtle tracking-[-0.07px]">
-                  Owners get the T-30 and T-14 nudge with Renew / Right-size / Cancel — no login needed.
+                  Owners get the T-30 and T-14 nudge with Renew / Reduce seats / Renegotiate / Cancel — no login needed.
                 </Text>
               </div>
               <Switch

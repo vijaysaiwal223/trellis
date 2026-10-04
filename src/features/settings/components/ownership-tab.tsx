@@ -116,7 +116,7 @@ export function OwnershipTab({ notify }: { notify: (message: string) => void }) 
                   className={clx("[&_td]:h-[68px] [&_td]:!px-3", !row.owner && "bg-ui-tag-red-bg/30 hover:bg-ui-tag-red-bg/30")}
                 >
                   <Table.Cell>
-                    <Link href={`/renewals/${slug}`} className="flex items-center gap-3 hover:underline">
+                    <Link href="/" className="flex items-center gap-3 hover:underline">
                       <Avatar src={row.logo} fallback={row.vendor.slice(0, 2).toUpperCase()} variant="squared" size="base" />
                       <span className="flex min-w-0 flex-col">
                         <Text as="span" className="truncate text-[14px] font-bold leading-5 text-ui-fg-base">

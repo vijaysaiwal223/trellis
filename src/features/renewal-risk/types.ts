@@ -24,6 +24,10 @@ export type RenewalSeed = {
   vacancy?: "departed" | "unassigned";
   formerOwner?: string;
   usage: string;
+  /** Seats in use against seats bought. Absent for vendors without seat data. */
+  seats?: { active: number; purchased: number };
+  /** Year-over-year spend change, in percent. Absent when not tracked. */
+  yoyPercent?: number;
   status: string;
   statusTone: BadgeColor;
   action: string;

@@ -19,14 +19,23 @@ export type ChecklistItem = {
 };
 
 /**
- * The three decisions an owner can make. "Right-size" is the stored value for
+ * The four answers to a renewal. "Right-size" is the stored value for
  * Downsize (kept so records saved before the rename still load).
  */
-export type DecisionAction = "Renew" | "Right-size" | "Cancel";
+export type DecisionAction = "Renew" | "Right-size" | "Cancel" | "Renegotiate";
 
 /** What a user sees for a stored action. */
 export function actionLabel(action: string): string {
   return action === "Right-size" ? "Downsize" : action;
+}
+
+/**
+ * Answers that change the contract, so the vendor needs written notice before
+ * cancel-by. Renewing as-is needs no notice; renegotiating needs the vendor's
+ * agreement but isn't a notice to leave or shrink.
+ */
+export function needsWrittenNotice(action: DecisionAction): boolean {
+  return action === "Right-size" || action === "Cancel";
 }
 
 export type DetailRow = {
@@ -72,12 +81,4 @@ export type RenewalDetail = {
   ownership: DetailRow[];
   /** Payment history — past renewal amounts, most recent last. Matches the given data model's "payment history and YoY price change". */
   paymentHistory: { period: string; amount: number }[];
-  /**
-   * Added field #2 (see FRAMING-MEMO.md): monthly purchased/active seat
-   * history, most recent last — the current snapshot is in `plan`, this is
-   * the trend behind it. Plausible because "active seats" is already sourced
-   * from SSO logs (per the brief), and SSO activity is inherently a time
-   * series, not a single read.
-   */
-  usageTrend: { month: string; purchasedSeats: number; activeSeats: number }[];
 };

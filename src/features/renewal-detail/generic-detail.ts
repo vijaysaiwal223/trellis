@@ -132,8 +132,6 @@ export const genericRenewalDetails: Record<string, RenewalDetail> = Object.fromE
         { period: "Last year", amount: Math.round(lastYear) },
         { period: "This year", amount: raw.contractValue },
       ],
-      // No fabricated monthly history for this generic batch — see FRAMING-MEMO.md.
-      usageTrend: [],
     };
 
     return [slug, detail];

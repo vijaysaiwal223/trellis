@@ -6,6 +6,7 @@ import { useEffect, useMemo, type ReactNode } from "react";
 
 import { buildAiPortfolioFacts } from "@/features/renewal-detail/ai-portfolio";
 import { buildAiSuggestionFacts } from "@/features/renewal-detail/ai-suggestion";
+import { useRightPanel, RightPanelProvider } from "./right-panel-state";
 import { AiAssistantPanel, type AiAssistantPanelContext } from "@/features/renewal-detail/components/ai-assistant-panel";
 import { genericRenewalDetails } from "@/features/renewal-detail/generic-detail";
 import { renewalDetails } from "@/features/renewal-detail/mock-data";
@@ -14,7 +15,8 @@ import { useAssessedRenewals } from "@/features/renewal-risk/use-assessed-renewa
 import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
 
 import { AiAssistantProvider, useAiAssistant } from "./ai-assistant-state";
-import { AppHeader } from "./app-header";
+import { ProfileProvider } from "./profile-state";
+import { SettingsProvider } from "@/lib/settings-state";
 import { Sidebar } from "./sidebar";
 
 const allRenewalDetails = { ...renewalDetails, ...genericRenewalDetails };
@@ -22,15 +24,22 @@ const allRenewalDetails = { ...renewalDetails, ...genericRenewalDetails };
 /** App chrome shared by every route: top header, side navigation, content, and AI. */
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <AiAssistantProvider>
-      <AppShellContent>{children}</AppShellContent>
-    </AiAssistantProvider>
+    <ProfileProvider>
+      <SettingsProvider>
+        <AiAssistantProvider>
+          <RightPanelProvider>
+            <AppShellContent>{children}</AppShellContent>
+          </RightPanelProvider>
+        </AiAssistantProvider>
+      </SettingsProvider>
+    </ProfileProvider>
   );
 }
 
 function AppShellContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { isOpen, close, suggestions, setSuggestion, requestReview } = useAiAssistant();
+  const { panel } = useRightPanel();
   const { resolutions, departedOwners } = useRenewalRuntime();
   const assessed = useAssessedRenewals(renewals);
   const portfolioFacts = useMemo(() => buildAiPortfolioFacts(assessed, allRenewalDetails), [assessed]);
@@ -66,23 +75,23 @@ function AppShellContent({ children }: { children: ReactNode }) {
 
   return (
     <TooltipProvider>
-      <div className="flex h-screen w-full flex-col overflow-hidden rounded-[16px] bg-ui-bg-subtle text-ui-fg-base">
-        <AppHeader />
-        <div className="flex min-h-0 flex-1">
-          <Sidebar />
+      <div className="flex h-screen w-full gap-[4px] overflow-hidden bg-[#030303] p-[4px] text-ui-fg-base">
+        <Sidebar />
+        <div className="relative flex min-w-px flex-1 flex-col overflow-hidden rounded-[12px] border border-solid border-[#e4e4e7] bg-white">
           <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</main>
-          {isOpen ? (
-            <>
-              <button type="button" aria-label="Close Bruno assistant" onClick={close}
-                className="fixed inset-0 z-30 bg-ui-fg-base/30 2xl:hidden" />
-              <AiAssistantPanel
-                key={detail ? suggestionKey : "portfolio"}
-                context={context}
-                onClose={close}
-              />
-            </>
-          ) : null}
         </div>
+        {/* Bruno opens in the same side slot as the other drawers. */}
+        {isOpen ? (
+          <div className="flex h-full w-[400px] shrink-0 flex-col">
+            <AiAssistantPanel
+              key={detail ? suggestionKey : "portfolio"}
+              context={context}
+              onClose={close}
+            />
+          </div>
+        ) : panel ? (
+          <div className="flex h-full w-[400px] shrink-0 flex-col">{panel}</div>
+        ) : null}
       </div>
     </TooltipProvider>
   );

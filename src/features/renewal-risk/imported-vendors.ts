@@ -64,6 +64,9 @@ export const rawVendorRecords: RawVendorRecord[] = [
   { vendor: "Okta", category: "Security", contractValue: 108_000, renewalDate: "2026-12-31", renewalType: "Negotiated", noticePeriodDays: 90, purchasedSeats: 500, activeSeats: 472, owner: "Robert Taylor", yoyPercent: 7 },
   { vendor: "Superhuman", category: "Productivity", contractValue: 18_000, renewalDate: "2027-04-01", renewalType: "Auto-Renew", noticePeriodDays: 30, purchasedSeats: 200, activeSeats: 98, owner: "Megan Scott", yoyPercent: 0 },
   { vendor: "Snowflake", category: "Data & Analytics", contractValue: 240_000, renewalDate: "2026-12-31", renewalType: "Negotiated", noticePeriodDays: 90, purchasedSeats: 85, activeSeats: 79, owner: "Ethan Davis", yoyPercent: 18 },
+  // Gong renews 2026-12-20 (not the canvas's 1 Jan) so its notice deadline falls before the Sep 26 snapshot: the missed-deadline case.
+  { vendor: "Gong", category: "Sales", contractValue: 96_000, renewalDate: "2026-12-20", renewalType: "Auto-Renew", noticePeriodDays: 90, purchasedSeats: 120, activeSeats: 88, owner: "Priya Sharma", yoyPercent: 14 },
+  { vendor: "Tableau", category: "Analytics", contractValue: 57_600, renewalDate: "2027-02-01", renewalType: "Auto-Renew", noticePeriodDays: 90, purchasedSeats: 80, activeSeats: 41, owner: "Sam Okafor", yoyPercent: 9 },
 ];
 
 /** Today in the prototype's world, from the shared clock. */
@@ -125,6 +128,8 @@ function toRenewalSeed(raw: RawVendorRecord): RenewalSeed {
     team: null,
     vacancy: ownerless ? "unassigned" : undefined,
     usage: `${usagePercentFor(raw)}%`,
+    seats: { active: raw.activeSeats, purchased: raw.purchasedSeats },
+    yoyPercent: raw.yoyPercent,
     ...status,
   };
 }

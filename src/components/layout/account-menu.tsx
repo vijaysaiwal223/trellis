@@ -2,15 +2,35 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Text, clx } from "@medusajs/ui";
-import { RiArrowDownSLine } from "@remixicon/react";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-const VIJAY_AVATAR = "/assets/vijay-saiwal.jpg";
+import { profileHome, profileIdentity, type Profile, useProfile } from "./profile-state";
 
+const VIJAY_AVATAR = "/assets/vijay-saiwal.jpg";
+const profiles: Profile[] = ["lead", "owner", "admin"];
+
+function Avatar({ profile, size }: { profile: Profile; size: number }) {
+  if (profile === "admin") {
+    return <Image src={VIJAY_AVATAR} alt="" width={size} height={size} className="shrink-0 rounded-[6px] object-cover" style={{ width: size, height: size }} />;
+  }
+  return (
+    <span
+      className="flex shrink-0 items-center justify-center rounded-[6px] bg-[#e8eefb] text-[11px] font-semibold text-[#1d449f]"
+      style={{ width: size, height: size }}
+    >
+      {profileIdentity[profile].initials}
+    </span>
+  );
+}
+
+/** The account card at the bottom of the sidebar. Its menu switches between the profiles. */
 export function AccountMenu() {
+  const { profile, setProfile } = useProfile();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const current = profileIdentity[profile];
 
   useEffect(() => {
     if (!open) return;
@@ -26,64 +46,63 @@ export function AccountMenu() {
     };
   }, [open]);
 
+  const choose = (next: Profile) => {
+    setOpen(false);
+    setProfile(next);
+    router.push(profileHome[next]);
+  };
+
   return (
     <div className="relative" ref={ref}>
       <button
         type="button"
-        aria-label="Account menu"
+        aria-label="Profile menu"
         aria-expanded={open}
         onClick={() => setOpen((visible) => !visible)}
-        className={clx(
-          "flex h-9 shrink-0 items-center gap-2 rounded-full bg-ui-bg-base py-1 pl-1 pr-2.5 shadow-borders-base hover:bg-ui-bg-base-hover",
-          open && "ring-2 ring-ui-bg-interactive-soft",
-        )}
+        className="relative flex w-full items-center gap-[12px] rounded-[8px] bg-[#27272a] px-[8px] py-[8px] text-left"
       >
-        <Image
-          src={VIJAY_AVATAR}
-          alt="Vijay Saiwal"
-          width={28}
-          height={28}
-          className="size-7 shrink-0 rounded-full object-cover"
-        />
-        <div className="flex min-w-0 flex-col items-start leading-tight">
-          <Text as="span" className="truncate text-[13px] font-medium leading-4 text-ui-fg-base">
-            Vijay Saiwal
-          </Text>
-          <Text as="span" className="truncate text-[11px] leading-4 text-ui-fg-subtle">
-            Admin
-          </Text>
-        </div>
-        <RiArrowDownSLine className="size-4 shrink-0 text-ui-fg-muted" />
+        <Avatar profile={profile} size={32} />
+        <span className="flex min-w-px flex-1 flex-col justify-center gap-[2px]">
+          <span className="truncate text-[14px] font-medium leading-[20px] text-[#f4f4f5]">{current.name}</span>
+          <span className="flex w-fit items-center justify-center rounded-[4px] border-[0.5px] border-solid border-white/10 bg-[#3f3f46] px-[4.5px] py-[2.5px] text-[12px] font-medium leading-[1.1] text-[#d4d4d8]">
+            {current.role}
+          </span>
+        </span>
+        <img alt="" className="relative block size-[15px] shrink-0" src="/assets/figma/v2/imgTrianglesMini.svg" />
       </button>
 
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 top-[44px] z-50 flex w-[220px] flex-col overflow-hidden rounded-[8px] bg-ui-bg-base py-1 shadow-elevation-flyout"
+          className="absolute bottom-[calc(100%+8px)] left-0 z-50 flex w-full flex-col overflow-hidden rounded-[8px] bg-white py-1 shadow-elevation-flyout"
         >
-          <div className="flex items-center gap-2 px-3 py-2">
-            <Image
-              src={VIJAY_AVATAR}
-              alt=""
-              width={28}
-              height={28}
-              className="size-7 shrink-0 rounded-full object-cover"
-            />
-            <div className="flex min-w-0 flex-col">
-              <Text as="span" className="truncate text-[14px] font-medium leading-5 text-ui-fg-base">
-                Vijay Saiwal
-              </Text>
-              <Text as="span" className="truncate text-[12px] leading-4 text-ui-fg-muted">
-                Admin
-              </Text>
-            </div>
-          </div>
-          <div className="my-1 border-t border-ui-border-base" />
+          <span className="px-3 pb-1 pt-2 text-[12px] font-medium text-[#71717a]">Switch profile</span>
+          {profiles.map((option) => {
+            const on = option === profile;
+            return (
+              <button
+                key={option}
+                type="button"
+                role="menuitemradio"
+                aria-checked={on}
+                onClick={() => choose(option)}
+                className="flex items-center gap-[10px] px-3 py-2 text-left hover:bg-[#f4f4f5]"
+              >
+                <Avatar profile={option} size={28} />
+                <span className="flex min-w-px flex-1 flex-col">
+                  <span className="truncate text-[14px] font-medium leading-[20px] text-[#18181b]">{profileIdentity[option].name}</span>
+                  <span className="text-[12px] leading-[16px] text-[#71717a]">{profileIdentity[option].role}</span>
+                </span>
+                {on ? <span className="text-[13px] text-[#2876f5]">✓</span> : null}
+              </button>
+            );
+          })}
+          <div className="my-1 border-t border-[#e4e4e7]" />
           <Link
             href="/settings"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="px-3 py-2 text-left text-[14px] leading-5 text-ui-fg-base hover:bg-ui-bg-subtle-hover"
+            className="px-3 py-2 text-left text-[14px] leading-5 text-[#18181b] hover:bg-[#f4f4f5]"
           >
             Settings
           </Link>
@@ -91,7 +110,7 @@ export function AccountMenu() {
             type="button"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="px-3 py-2 text-left text-[14px] leading-5 text-ui-fg-base hover:bg-ui-bg-subtle-hover"
+            className="px-3 py-2 text-left text-[14px] leading-5 text-[#18181b] hover:bg-[#f4f4f5]"
           >
             Sign out
           </button>

@@ -184,7 +184,7 @@ export function AiAssistantPanel({
     <aside
       aria-label="Bruno assistant"
       id="renewal-ai-panel"
-      className="fixed inset-y-0 right-0 z-40 flex w-[min(400px,100vw)] flex-col border-l border-ui-border-base bg-ui-bg-base shadow-elevation-flyout 2xl:static 2xl:z-auto 2xl:-ml-px 2xl:w-[380px] 2xl:shrink-0 2xl:overflow-hidden 2xl:rounded-[12px] 2xl:border 2xl:shadow-none"
+      className="flex h-full w-full flex-col overflow-hidden rounded-[12px] border border-solid border-ui-border-base bg-ui-bg-base"
     >
       <div className="flex items-start justify-between gap-3 border-b border-ui-border-base px-4 py-4">
         <div className="flex items-center gap-2.5">

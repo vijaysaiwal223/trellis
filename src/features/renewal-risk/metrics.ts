@@ -1,37 +1,37 @@
-import {
-  RiAlarmWarningLine,
-  RiBankLine,
-  RiMoneyDollarCircleLine,
-  RiTimerLine,
-  RiUserUnfollowLine,
-  type RemixiconComponentType,
-} from "@remixicon/react";
-
 import type { Renewal } from "./types";
 
-export type MetricKey = "decision" | "lowUsage" | "autoRenew" | "cancelBy30" | "missingOwner";
+export type MetricKey = "decision30" | "dueWeek" | "noOwner" | "pastDeadline";
+
+/** A Figma-exported card icon and its inset inside the 20px box, from the design. */
+export type MetricIcon = { src: string; outer: string };
 
 export type RenewalMetric = {
   key: MetricKey;
-  icon: RemixiconComponentType;
+  icon: MetricIcon;
   label: string;
   value: string;
   detail: string;
   count: number;
+  tone?: "danger";
+  /** Vendor logos for the renewals behind the number, shown in place of the detail line. */
+  logos?: { name: string; src: string }[];
 };
 
 type AssessedEntry = { row: Renewal; resolved: boolean };
 
-const formatCompactCurrency = (amount: number) => `$${Math.round(amount / 1000)}k`;
+const formatCurrency = (amount: number) => `$${Math.round(amount).toLocaleString("en-US")}`;
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
+const icon = (name: string, outer: string): MetricIcon => ({ src: `/assets/figma/v2/${name}`, outer });
 
 type MetricDef = {
   key: MetricKey;
-  icon: RemixiconComponentType;
+  icon: MetricIcon;
   label: string;
   isDollar: boolean;
+  tone?: "danger";
   match: (entry: AssessedEntry) => boolean;
   detail: (count: number) => string;
+  withLogos?: boolean;
 };
 
 // Each card's number is derived live from the same renewals the table shows,
@@ -39,44 +39,38 @@ type MetricDef = {
 // a filter predicate for that table.
 const metricDefs: MetricDef[] = [
   {
-    key: "decision",
-    icon: RiMoneyDollarCircleLine,
-    label: "Open contract value",
+    key: "decision30",
+    icon: icon("imgElements4.svg", "inset-[5.21%]"),
+    label: "Open decision, next 30 days",
     isDollar: true,
-    match: (entry) => !entry.resolved,
-    detail: (count) => `${plural(count, "renewal")} still open`,
+    match: (entry) => !entry.resolved && entry.row.daysToCancelBy >= 0 && entry.row.daysToCancelBy <= 30,
+    detail: (count) => plural(count, "contract"),
   },
   {
-    key: "lowUsage",
-    icon: RiBankLine,
-    label: "Renewals under 80% usage",
+    key: "dueWeek",
+    icon: icon("imgElements5.svg", "inset-[4.17%_5.21%_6.25%_5.21%]"),
+    label: "Due this week",
     isDollar: true,
-    match: (entry) => (parseInt(entry.row.usage, 10) || 0) < 80,
-    detail: (count) => `${plural(count, "renewal")} under 80% usage`,
+    match: (entry) => !entry.resolved && entry.row.daysToCancelBy >= 0 && entry.row.daysToCancelBy <= 7,
+    detail: (count) => plural(count, "contract"),
   },
   {
-    key: "autoRenew",
-    icon: RiTimerLine,
-    label: "Renewing automatically",
-    isDollar: false,
-    match: (entry) => entry.row.contractType === "Auto-renew" && !entry.resolved,
-    detail: () => "Renew unless someone acts",
-  },
-  {
-    key: "cancelBy30",
-    icon: RiAlarmWarningLine,
-    label: "Cancel-by within 30 days",
-    isDollar: false,
-    match: (entry) => entry.row.daysToCancelBy >= 0 && entry.row.daysToCancelBy <= 30 && !entry.resolved,
-    detail: (count) => `${plural(count, "cancel-by date")} in next 30 days`,
-  },
-  {
-    key: "missingOwner",
-    icon: RiUserUnfollowLine,
-    label: "Missing owners",
+    key: "noOwner",
+    icon: icon("imgElements6.svg", "inset-[5.21%_11.46%]"),
+    label: "Without an active owner",
     isDollar: false,
     match: (entry) => entry.row.owner === null,
-    detail: () => "No accountable owner assigned",
+    detail: () => "",
+    withLogos: true,
+  },
+  {
+    key: "pastDeadline",
+    icon: icon("imgElements7.svg", "inset-[10.42%_2.08%]"),
+    label: "Past deadline",
+    isDollar: true,
+    tone: "danger",
+    match: (entry) => !entry.resolved && entry.row.daysToCancelBy < 0,
+    detail: (count) => `${plural(count, "contract")} • renew regardless`,
   },
 ];
 
@@ -86,11 +80,23 @@ export function matchesMetric(key: MetricKey, entry: AssessedEntry): boolean {
 
 export function deriveMetrics(assessed: AssessedEntry[]): RenewalMetric[] {
   return metricDefs.map((def) => {
-    const matches = assessed.filter(def.match);
+    const matches = assessed.filter((entry) => def.match(entry));
     const count = matches.length;
     const value = def.isDollar
-      ? formatCompactCurrency(matches.reduce((sum, entry) => sum + entry.row.contractValue, 0))
+      ? formatCurrency(matches.reduce((sum, entry) => sum + entry.row.contractValue, 0))
       : String(count);
-    return { key: def.key, icon: def.icon, label: def.label, value, detail: def.detail(count), count };
+    const logos = def.withLogos
+      ? matches.map((entry) => ({ name: entry.row.vendor, src: entry.row.logo })).slice(0, 3)
+      : undefined;
+    return {
+      key: def.key,
+      icon: def.icon,
+      label: def.label,
+      value,
+      detail: def.detail(count),
+      count,
+      tone: def.tone,
+      logos,
+    };
   });
 }
