@@ -182,7 +182,8 @@ export function RenewalRow({
         </span>
       </div>
 
-      <div className={`${cell} min-w-[200px] flex-1 flex-col items-start justify-center gap-[4px] px-[8px]`}>
+      {/* Badge, gap and note need 48px; the row is 64px, so trim the padding to fit without clipping. */}
+      <div className={`${cell} min-w-[200px] flex-1 flex-col items-start justify-center gap-[4px] !py-[6px] px-[8px]`}>
         <Badge color={stageColor[stage]} size="xsmall" className="whitespace-nowrap">
           {stageLabel[stage]}
         </Badge>
