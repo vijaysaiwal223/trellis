@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 
+import { Toaster } from "@medusajs/ui";
 import { RenewalRuntimeProvider } from "@/lib/renewal-runtime-state";
 
 import "./globals.css";
@@ -64,6 +65,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full bg-ui-bg-subtle text-ui-fg-base tracking-[0]">
         <RenewalRuntimeProvider>{children}</RenewalRuntimeProvider>
+        <Toaster position="bottom-right" />
       </body>
     </html>
   );

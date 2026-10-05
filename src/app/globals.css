@@ -268,3 +268,10 @@ svg {
 [data-radix-popper-content-wrapper] {
   z-index: 60 !important;
 }
+
+/* Toast title and description match the alert text size (14px). */
+[data-sonner-toaster] .txt-compact-small-plus,
+[data-sonner-toaster] .txt-small {
+  font-size: 14px;
+  line-height: 20px;
+}

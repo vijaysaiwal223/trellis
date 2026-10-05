@@ -10,9 +10,18 @@ import {
   type ReactNode,
 } from "react";
 
-import type { DecisionAction } from "@/features/renewal-detail/types";
+import { toast } from "@medusajs/ui";
+
+import { needsWrittenNotice, type DecisionAction } from "@/features/renewal-detail/types";
 import { stamp } from "@/lib/clock";
 import { formatLongISO } from "@/features/renewal-risk/deadlines";
+import { renewals } from "@/features/renewal-risk/mock-data";
+import { toVendorSlug } from "@/lib/vendor-slug";
+
+/** Vendor name for a slug, for toast copy. */
+function vendorLabel(slug: string) {
+  return renewals.find((r) => toVendorSlug(r.vendor) === slug)?.vendor ?? slug;
+}
 
 export const noticeMethods = ["Email to account executive", "Vendor portal", "Letter"] as const;
 export type NoticeMethod = (typeof noticeMethods)[number];
@@ -196,6 +205,9 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
   }, [restored, resolutions]);
 
   const assignOwner = useCallback((slug: string, name: string, options?: AssignOptions) => {
+    toast.success(`${name} assigned to ${vendorLabel(slug)}`, {
+      description: options?.ownerRequest ? `Recommendation due ${options.ownerRequest.dueBy}` : "Status updated",
+    });
     setResolutions((prev) => {
       const previous = prev[slug];
       return {
@@ -227,6 +239,7 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const askOwnerQuestion = useCallback((slug: string, text: string) => {
+    toast.success(`Question sent to owner`, { description: vendorLabel(slug) });
     const at = stamp();
     setResolutions((prev) => {
       const previous = prev[slug];
@@ -246,6 +259,7 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
   }, [appendEvent]);
 
   const scheduleNextCycle = useCallback((slug: string, reviewOn: string) => {
+    toast.info(`Next cycle scheduled for ${vendorLabel(slug)}`, { description: `Review on ${formatLongISO(reviewOn)}` });
     setResolutions((prev) => {
       const previous = prev[slug];
       return {
@@ -260,6 +274,7 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const acceptAsIs = useCallback((slug: string) => {
+    toast.info(`${vendorLabel(slug)} renews as is`, { description: "Status: Handled" });
     const decision: DecisionRecord = {
       action: "Renew",
       note: "Notice deadline missed. Accepted as is.",
@@ -286,6 +301,16 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const confirmDecision = useCallback((slug: string, decision: DecisionRecord) => {
+    const vendor = vendorLabel(slug);
+    if (decision.draft) {
+      toast.info(`Draft saved for ${vendor}`);
+    } else if (decision.confirmedAt) {
+      toast.success(`${vendor} handled`, { description: `Outcome confirmed · ${decision.action}` });
+    } else {
+      toast.success(`Decision recorded for ${vendor}`, {
+        description: needsWrittenNotice(decision.action) ? "Status: Ready for notice" : "Status: Awaiting outcome",
+      });
+    }
     setResolutions((prev) => {
       const previous = prev[slug];
       const now = stamp();
@@ -313,6 +338,7 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const recordRecommendation = useCallback((slug: string, recommendation: OwnerRecommendation) => {
+    toast.success(`Recommendation sent for ${vendorLabel(slug)}`, { description: "Status: Recommendation in" });
     setResolutions((prev) => {
       const previous = prev[slug];
       return {
@@ -330,6 +356,7 @@ export function RenewalRuntimeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const recordNotice = useCallback((slug: string, notice: { sentAt: string; method: NoticeMethod; reference?: string }) => {
+    toast.success(`Notice sent for ${vendorLabel(slug)}`, { description: "Status: Awaiting outcome" });
     setResolutions((prev) => {
       const previous = prev[slug];
       if (!previous?.decision) return prev;

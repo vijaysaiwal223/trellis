@@ -3,28 +3,17 @@
 import { RiCloseLine } from "@remixicon/react";
 import { useEffect, useState } from "react";
 
-import { actionLabel } from "@/features/renewal-detail/types";
-import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
+import { Alert } from "@/components/ui/alert";
+import { Stepper, renewalJourney } from "@/components/ui/stepper";
+import { actionLabel, type DecisionAction } from "@/features/renewal-detail/types";
 import { stamp } from "@/lib/clock";
+import { dayMonthYear } from "@/lib/dates";
+import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
+import { Badge, Button, IconButton, Input, Textarea } from "@medusajs/ui";
 
-import type { ISODate } from "../deadlines";
 import { useAssessedRenewals } from "../use-assessed-renewals";
 import { renewals } from "../mock-data";
 import type { Renewal } from "../types";
-import { Badge, Button, IconButton, Input, Textarea } from "@medusajs/ui";
-import { Alert } from "@/components/ui/alert";
-import { Stepper, renewalJourney } from "@/components/ui/stepper";
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** "28 Sep" */
-const dayMonth = (iso: ISODate) => {
-  const [, month, day] = iso.split("-").map(Number);
-  return `${day} ${MONTHS[month - 1]}`;
-};
-
-/** "1 Jan 2027" */
-const dayMonthYear = (iso: ISODate) => `${dayMonth(iso)} ${iso.slice(0, 4)}`;
 
 const DECISION_WORDING: Record<string, string> = {
   Renew: "Renew as is",
@@ -33,17 +22,24 @@ const DECISION_WORDING: Record<string, string> = {
   Cancel: "Cancel",
 };
 
+/** What the vendor has to show before the renewal can be closed. */
+function doneWhen(action: DecisionAction, row: Renewal, targetOutcome?: string): string {
+  if (action === "Right-size") return `their new order form or invoice shows ${targetOutcome?.match(/\d+/)?.[0] ?? "the new"} seats`;
+  if (action === "Cancel") return `their written confirmation that the contract ends on ${dayMonthYear(row.renewalDate)}`;
+  if (action === "Renegotiate") return "their new price, in writing";
+  return "their confirmation of the renewal terms";
+}
 
 /**
- * Read-only view of a renewal that's been handled: the decision that was recorded,
- * when it was recorded and confirmed, and the facts it was based on.
+ * A decision that is waiting on the vendor. The renewal stays open until the lead
+ * records what the vendor did and confirms it. Once confirmed, the drawer becomes a record.
  */
 export function HandledDrawer({ slug, onClose }: { slug: string; onClose: () => void }) {
   const { resolutions, logVendorResponse, recordNotice, confirmDecision } = useRenewalRuntime();
   const assessed = useAssessedRenewals(renewals);
   const row: Renewal | undefined = assessed.find((entry) => entry.slug === slug)?.row;
   const decision = resolutions[slug]?.decision;
-  const [vendorNote, setVendorNote] = useState("");
+  const [reply, setReply] = useState("");
   const [disputeSeats, setDisputeSeats] = useState("");
 
   useEffect(() => {
@@ -56,12 +52,20 @@ export function HandledDrawer({ slug, onClose }: { slug: string; onClose: () => 
 
   if (!row || !decision) return null;
 
+  const pending = !decision.confirmedAt;
   const wording = DECISION_WORDING[decision.action] ?? actionLabel(decision.action);
   const recorded = decision.recordedAt?.slice(0, 10);
   const confirmed = decision.confirmedAt?.slice(0, 10);
+  const noticeSent = decision.noticeSentAt?.slice(0, 10);
   const seats = row.seats;
   const perSeat = seats ? Math.round(row.contractValue / seats.purchased) : undefined;
   const yoy = row.yoyPercent;
+
+  const confirm = () => {
+    logVendorResponse(slug, reply.trim());
+    confirmDecision(slug, { ...decision, confirmedAt: stamp(), vendorReference: reply.trim() });
+    setReply("");
+  };
 
   return (
     <div className="flex h-full w-full flex-col overflow-clip rounded-[12px] border border-solid border-[#e4e4e7] bg-white">
@@ -77,10 +81,10 @@ export function HandledDrawer({ slug, onClose }: { slug: string; onClose: () => 
           <div className="flex flex-col gap-[4px]">
             <div className="flex items-start gap-[4px]">
               <span className="whitespace-nowrap text-[16px] font-medium leading-[20px] tracking-[-0.16px] text-[#18181b]">{row.vendor}</span>
-              {decision.confirmedAt ? (
-                <Badge color="green" size="xsmall" className="whitespace-nowrap">Handled</Badge>
-              ) : (
+              {pending ? (
                 <Badge color="blue" size="xsmall" className="whitespace-nowrap">Awaiting outcome</Badge>
+              ) : (
+                <Badge color="green" size="xsmall" className="whitespace-nowrap">Handled</Badge>
               )}
             </div>
             <div className="flex gap-[4px] text-[14px] leading-[16px] tracking-[-0.07px] whitespace-nowrap text-[#52525b]">
@@ -95,130 +99,132 @@ export function HandledDrawer({ slug, onClose }: { slug: string; onClose: () => 
         </IconButton>
       </div>
 
-      <Stepper steps={renewalJourney} current={(decision?.confirmedAt ? renewalJourney.length : renewalJourney.length - 1)} />
+      <Stepper steps={renewalJourney} current={pending ? renewalJourney.length - 1 : renewalJourney.length} />
+
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <div className="flex flex-col gap-[12px] border-b border-solid border-[#e4e4e7] p-[16px]">
-          <span className="text-[14px] font-medium leading-[20px] tracking-[-0.14px] text-[#18181b]">Decision recorded</span>
-          <Alert status="Success">
-            <span className="font-medium leading-[20px] tracking-[-0.07px]">
-              {decision.targetOutcome ? `${wording}: ${decision.targetOutcome}` : wording}
-            </span>
-            {decision.note ? <span className="leading-[20px] tracking-[-0.035px]">{`“${decision.note}”`}</span> : null}
-          </Alert>
-          <div className="flex w-full items-start justify-between text-[14px] leading-[20px] whitespace-nowrap">
-            <div className="flex flex-col gap-[4px]">
-              <span className="text-[#52525b] tracking-[-0.07px]">Recorded</span>
-              <span className="font-medium tracking-[-0.14px] text-[#18181b]">{recorded ? dayMonthYear(recorded) : "—"}</span>
+        {pending ? (
+          <div className="flex flex-col gap-[12px] border-b border-solid border-[#e4e4e7] p-[16px]">
+            <Alert
+              status="Information"
+              title={`Waiting for ${row.vendor} to confirm`}
+              actions={
+                !noticeSent && row.daysToDecideBy < 0 ? (
+                  <Button variant="secondary" size="small" onClick={() => recordNotice(slug, { sentAt: stamp(), method: "Email to account executive" })}>
+                    Send protective notice
+                  </Button>
+                ) : undefined
+              }
+            >
+              <span>{noticeSent ? `${wording} notice sent ${dayMonthYear(noticeSent)}.` : `${wording}. Written notice still needs to be sent.`}</span>
+              <span>{`Done when ${doneWhen(decision.action, row, decision.targetOutcome)}.`}</span>
+            </Alert>
+
+            <div className="flex flex-col gap-[6px]">
+              <span className="text-[14px] font-medium text-[#18181b]">Vendor&apos;s reply or reference</span>
+              <Textarea
+                value={reply}
+                onChange={(event) => setReply(event.target.value)}
+                aria-label="Vendor's reply or reference"
+                rows={2}
+                placeholder="e.g. Email from Dana, 9 Oct, or invoice INV-204"
+              />
+              <span className="text-[12px] text-[#52525b]">Confirming needs the vendor&apos;s reply, so the renewal can close with evidence.</span>
             </div>
-            <div className="flex flex-col gap-[4px]">
-              <span className="text-[#52525b] tracking-[-0.07px]">Confirmed</span>
-              <span className="font-medium tracking-[-0.14px] text-[#18181b]">{confirmed ? dayMonthYear(confirmed) : "—"}</span>
-            </div>
-            <div className="flex flex-col gap-[4px]">
-              <span className="text-[#52525b] tracking-[-0.07px]">Renews</span>
-              <span className="font-medium tracking-[-0.14px] text-[#18181b]">{dayMonthYear(row.renewalDate)}</span>
+
+            {decision.action === "Right-size" && noticeSent ? (
+              <div className="flex flex-col gap-[6px] border-t border-solid border-[#e4e4e7] pt-[12px]">
+                <span className="text-[14px] font-medium text-[#18181b]">Invoice still shows the old seats?</span>
+                <div className="flex flex-wrap items-center gap-[8px]">
+                  <Input
+                    value={disputeSeats}
+                    onChange={(event) => setDisputeSeats(event.target.value)}
+                    aria-label="Seats on the invoice"
+                    placeholder="Seats on the invoice"
+                    className="w-[180px]"
+                  />
+                  <Button
+                    variant="secondary"
+                    size="small"
+                    disabled={!disputeSeats.trim()}
+                    onClick={() => {
+                      logVendorResponse(slug, `Dispute: invoice shows ${disputeSeats.trim()} seats; decision was ${decision.targetOutcome ?? "a seat reduction"}. Notice sent ${noticeSent}.`);
+                      setDisputeSeats("");
+                    }}
+                  >
+                    Log dispute
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-[12px] border-b border-solid border-[#e4e4e7] p-[16px]">
+            <span className="text-[14px] font-medium leading-[20px] text-[#18181b]">Decision recorded</span>
+            <Alert status="Success">
+              <span className="font-medium leading-[20px]">{decision.targetOutcome ? `${wording}: ${decision.targetOutcome}` : wording}</span>
+            </Alert>
+            <div className="flex w-full items-start justify-between text-[14px] leading-[20px] whitespace-nowrap">
+              <div className="flex flex-col gap-[4px]">
+                <span className="text-[#52525b]">Recorded</span>
+                <span className="font-medium text-[#18181b]">{recorded ? dayMonthYear(recorded) : "—"}</span>
+              </div>
+              <div className="flex flex-col gap-[4px]">
+                <span className="text-[#52525b]">Confirmed</span>
+                <span className="font-medium text-[#18181b]">{confirmed ? dayMonthYear(confirmed) : "—"}</span>
+              </div>
+              <div className="flex flex-col gap-[4px]">
+                <span className="text-[#52525b]">Renews</span>
+                <span className="font-medium text-[#18181b]">{dayMonthYear(row.renewalDate)}</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className="flex flex-col gap-[12px] border-b border-solid border-[#e4e4e7] p-[16px]">
-          <span className="text-[14px] font-medium leading-[20px] tracking-[-0.14px] text-[#18181b]">Evidence</span>
+          <span className="text-[14px] font-medium leading-[20px] text-[#18181b]">Evidence</span>
           <div className="grid h-[132px] w-full shrink-0 grid-cols-2 grid-rows-2 overflow-clip rounded-[12px] border border-solid border-[#e4e4e7] bg-white text-[14px] leading-[20px] whitespace-nowrap">
             <div className="flex flex-col gap-[4px] border-b border-r border-solid border-[#e4e4e7] p-[12px]">
-              <span className="text-[#52525b] tracking-[-0.07px]">Seats active</span>
-              <span className="font-medium tracking-[-0.14px] text-[#18181b]">
+              <span className="text-[#52525b]">Seats active</span>
+              <span className="font-medium text-[#18181b]">
                 {seats ? `${seats.active} of ${seats.purchased} (${Math.round((seats.active / seats.purchased) * 100)}%)` : row.usage}
               </span>
             </div>
             <div className="flex flex-col gap-[4px] border-b border-solid border-[#e4e4e7] p-[12px]">
-              <span className="text-[#52525b] tracking-[-0.07px]">Price change</span>
-              <span className="font-medium tracking-[-0.14px] text-[#18181b]">
-                {yoy === undefined ? "Not tracked" : `${yoy > 0 ? "+" : ""}${yoy}% vs last year`}
-              </span>
+              <span className="text-[#52525b]">Price change</span>
+              <span className="font-medium text-[#18181b]">{yoy === undefined ? "Not tracked" : `${yoy > 0 ? "+" : ""}${yoy}% vs last year`}</span>
             </div>
             <div className="flex flex-col gap-[4px] border-r border-solid border-[#e4e4e7] p-[12px]">
-              <span className="text-[#52525b] tracking-[-0.07px]">Annual value</span>
-              <span className="font-medium tracking-[-0.14px] text-[#18181b]">
+              <span className="text-[#52525b]">Annual value</span>
+              <span className="font-medium text-[#18181b]">
                 {perSeat !== undefined ? `${row.contractAmount} ($${perSeat.toLocaleString("en-US")} per seat)` : row.contractAmount}
               </span>
             </div>
             <div className="flex flex-col gap-[4px] p-[12px]">
-              <span className="text-[#52525b] tracking-[-0.07px]">Renewal type</span>
-              <span className="font-medium tracking-[-0.14px] text-[#18181b]">{`${row.contractType}, ${row.noticeDays}-day notice`}</span>
+              <span className="text-[#52525b]">Renewal type</span>
+              <span className="font-medium text-[#18181b]">{`${row.contractType}, ${row.noticeDays}-day notice`}</span>
             </div>
           </div>
         </div>
 
-        {decision && !decision.confirmedAt && decision.action === "Renegotiate" ? (
-          <div className="flex flex-col gap-[10px] border-b border-solid border-[#e4e4e7] p-[16px]">
-            <span className="text-[14px] font-medium text-[#18181b]">
-              {row.daysToDecideBy < 0 ? "Renegotiation stalled?" : "Renegotiation in progress"}
+        {!pending ? (
+          <div className="flex flex-col gap-[12px] p-[16px]">
+            <span className="text-[14px] font-medium leading-[20px] text-[#18181b]">Status</span>
+            <span className="text-[14px] leading-[20px] text-[#18181b]">
+              {`The outcome was confirmed on ${dayMonthYear(confirmed ?? recorded ?? row.renewalDate)}. This renewal no longer needs action.`}
             </span>
-            <span className="text-[13px] text-[#52525b]">Log what the vendor said. If they&apos;ve gone quiet, send a protective notice so the cancel option stays open.</span>
-            <Textarea
-              value={vendorNote}
-              onChange={(event) => setVendorNote(event.target.value)}
-              aria-label="Vendor response"
-              rows={2}
-              placeholder="What did the vendor say?"
-            />
-            <div className="flex flex-wrap gap-[8px]">
-              <Button variant="secondary" size="small" disabled={!vendorNote.trim()} onClick={() => {
-                logVendorResponse(slug, vendorNote.trim());
-                setVendorNote("");
-              }}>
-                Log vendor response
-              </Button>
-              {!decision.noticeSentAt && row.daysToDecideBy < 0 ? (
-                <Button variant="secondary" size="small" onClick={() => recordNotice(slug, { sentAt: stamp(), method: "Email to account executive" })}>
-                  Send protective notice
-                </Button>
-              ) : null}
-              <Button variant="primary" size="small" onClick={() => confirmDecision(slug, { ...decision, confirmedAt: stamp() })}>
-                Confirm outcome
-              </Button>
-            </div>
           </div>
         ) : null}
-
-        {decision?.action === "Right-size" && decision.noticeSentAt ? (
-          <div className="flex flex-col gap-[10px] border-b border-solid border-[#e4e4e7] p-[16px]">
-            <span className="text-[14px] font-medium text-[#18181b]">Vendor didn&apos;t apply the change?</span>
-            <span className="text-[13px] text-[#52525b]">
-              {`Notice sent ${decision.noticeSentAt.slice(0, 10)}${decision.noticeMethod ? ` by ${decision.noticeMethod.toLowerCase()}` : ""}${decision.vendorReference ? `, ref ${decision.vendorReference}` : ""}.`}
-            </span>
-            <div className="flex flex-wrap items-center gap-[8px]">
-              <Input
-                value={disputeSeats}
-                onChange={(event) => setDisputeSeats(event.target.value)}
-                aria-label="Seats on the invoice"
-                placeholder="Seats on the invoice"
-                className="w-[180px]"
-              />
-              <Button variant="secondary" size="small" disabled={!disputeSeats.trim()} onClick={() => {
-                logVendorResponse(slug, `Dispute: invoice shows ${disputeSeats.trim()} seats; decision was ${decision.targetOutcome ?? "a seat reduction"}. Notice record: ${decision.noticeSentAt?.slice(0, 10)}${decision.vendorReference ? `, ref ${decision.vendorReference}` : ""}.`);
-                setDisputeSeats("");
-              }}>
-                Log dispute
-              </Button>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="flex flex-1 flex-col gap-[12px] p-[16px]">
-          <span className="text-[14px] font-medium leading-[20px] tracking-[-0.14px] text-[#18181b]">Status</span>
-          <span className="text-[14px] leading-[20px] tracking-[-0.035px] text-[#18181b]">
-            {confirmed
-              ? `The outcome was confirmed on ${dayMonthYear(confirmed)}. This renewal no longer needs action.`
-              : "The decision is recorded and awaiting confirmation."}
-          </span>
-        </div>
       </div>
 
-      <div className="flex shrink-0 items-center justify-end border-t border-solid border-[#e4e4e7] bg-[#fafafa] px-[16px] py-[12px]">
+      <div className="flex shrink-0 items-center justify-end gap-[12px] border-t border-solid border-[#e4e4e7] bg-[#fafafa] px-[16px] py-[12px]">
         <Button variant="secondary" size="small" onClick={onClose}>
           Close
         </Button>
+        {pending ? (
+          <Button variant="primary" size="small" disabled={!reply.trim()} onClick={confirm}>
+            Confirm outcome
+          </Button>
+        ) : null}
       </div>
     </div>
   );

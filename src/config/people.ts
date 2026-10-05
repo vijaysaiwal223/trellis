@@ -2,6 +2,7 @@
 export const people = [
   { name: "Jordan Wu", team: "IT Operations" },
   { name: "Nadia Brooks", team: "Workplace" },
+  { name: "Priya Shah", team: "Sales Ops" },
 ] as const;
 
 export const teamOf = (name: string) => people.find((person) => person.name === name)?.team;

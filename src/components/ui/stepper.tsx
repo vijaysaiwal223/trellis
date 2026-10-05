@@ -1,8 +1,8 @@
 /** Where a renewal sits in the decision journey, shared by every drawer. */
-export const renewalJourney = ["Assign owner", "Owner recommends", "Lead decides", "Send notice", "Outcome confirmed"] as const;
+export const renewalJourney = ["Assign owner", "Owner recommends", "Lead decides", "Send notice", "Confirm outcome"] as const;
 
 /** The renewal path for a deadline that has already passed. */
-export const recoveryJourney = ["Deadline missed", "Choose recovery", "Outcome confirmed"] as const;
+export const recoveryJourney = ["Deadline missed", "Choose recovery", "Confirm outcome"] as const;
 
 type StepperProps = {
   steps: readonly string[];

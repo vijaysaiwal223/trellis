@@ -136,6 +136,7 @@ export default function RenewalRiskPage() {
           status="Success"
           title={`${notice.vendor} notice sent ${notice.date}.`}
           className="mx-[16px] mt-[16px]"
+          actionsPosition="end"
           actions={
             <>
               <Button variant="transparent" size="small" onClick={() => { setDrawer({ kind: "handled", slug: notice.slug }); setNotice(null); }}>

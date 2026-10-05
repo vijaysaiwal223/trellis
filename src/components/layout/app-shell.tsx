@@ -49,6 +49,11 @@ function AppShellContent({ children }: { children: ReactNode }) {
         <Sidebar />
         <div className="relative flex min-w-px flex-1 flex-col overflow-hidden rounded-[12px] border border-solid border-[#e4e4e7] bg-white">
           <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</main>
+          {/* Dims the queue while a drawer is open, so the drawer's task stands out. Clicks pass through. */}
+          <div
+            aria-hidden
+            className={`pointer-events-none absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity duration-200 ${panel && !isOpen ? "opacity-100" : "opacity-0"}`}
+          />
         </div>
         {/* Bruno opens in the same side slot as the other drawers. */}
         {isOpen ? (
