@@ -1,18 +1,23 @@
 "use client";
 
-import Link from "next/link";
 
+import { useCallback, useEffect, useState } from "react";
+
+import { AskBrunoButton } from "@/components/layout/ask-bruno-button";
+import { useAiAssistant } from "@/components/layout/ai-assistant-state";
 import { OWNER_NAME } from "@/components/layout/profile-state";
-import { dayMonth } from "@/lib/dates";
+import { useRightPanel } from "@/components/layout/right-panel-state";
+import { SeatGauge } from "@/components/ui/seat-gauge";
 import { stamp } from "@/lib/clock";
+import { dayMonth, dayMonthYear } from "@/lib/dates";
 import { useRenewalRuntime } from "@/lib/renewal-runtime-state";
 import { useAssessedRenewals, renewalStage, renewals, type RenewalStage } from "@/features/renewal-risk";
-import { actionLabel } from "@/features/renewal-detail/types";
 import type { BadgeColor } from "@/features/renewal-risk/types";
-import { Badge, Button, Heading, Table, Text } from "@medusajs/ui";
+import { Badge, Button, Table } from "@medusajs/ui";
+import { OwnerDecisionDrawer } from "./owner-decision-drawer";
 
 const statusFor: Partial<Record<RenewalStage, { label: string; color: BadgeColor }>> = {
-  "awaiting-owner": { label: "Needs your call", color: "orange" },
+  "awaiting-owner": { label: "Need your call", color: "orange" },
   "recommendation-in": { label: "Recommendation sent", color: "blue" },
   "ready-for-notice": { label: "With Anika", color: "blue" },
   "awaiting-outcome": { label: "With Anika", color: "blue" },
@@ -22,109 +27,151 @@ const statusFor: Partial<Record<RenewalStage, { label: string; color: BadgeColor
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
+/** "in 28 days", "2 days ago", "today". */
+const relativeDays = (days: number) => (days < 0 ? `${-days} days ago` : days === 0 ? "today" : `in ${days} days`);
+
+/** A vendor's logo in a small card, or its initials when there's no logo. */
+function VendorLogo({ logo, vendor }: { logo: string; vendor: string }) {
+  return (
+    <span className="flex size-[40px] shrink-0 items-center justify-center overflow-hidden rounded-[6px] bg-white p-px shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12),0px_0px_0px_1px_rgba(0,0,0,0.08)]">
+      {logo ? (
+        <img alt="" src={logo} className="size-full rounded-[5px] object-cover" />
+      ) : (
+        <span className="text-[12px] font-medium text-[#52525b]">{vendor.slice(0, 2).toUpperCase()}</span>
+      )}
+    </span>
+  );
+}
+
+/** A figure with its icon, as the dashboard's summary row shows them. */
+function KpiCard({ icon, label, value }: { icon: string; label: string; value: string }) {
+  return (
+    <div className="flex flex-1 items-start gap-[12px] rounded-[12px] border border-solid border-ui-border-base bg-ui-bg-subtle p-[10px]">
+      <span className="relative size-[20px] shrink-0">
+        <img alt="" src={icon} className="absolute block inset-0 max-w-none size-full" />
+      </span>
+      <div className="flex flex-col gap-[6px]">
+        <span className="text-[14px] leading-[20px] text-ui-fg-subtle">{label}</span>
+        <span className="text-[20px] font-medium leading-[28px] text-ui-fg-base">{value}</span>
+      </div>
+    </div>
+  );
+}
+
 /** The owner's view: the tools they're accountable for, and the ones that need their call. */
 export function OwnerHome() {
   const { resolutions, recordRecommendation } = useRenewalRuntime();
+  const { setPanel } = useRightPanel();
+  const { close: closeBruno } = useAiAssistant();
+  // The decision drawer opens beside the table for the tool picked with "Make your call".
+  const [openSlug, setOpenSlug] = useState<string | null>(null);
+  const closeDrawer = useCallback(() => setOpenSlug(null), []);
+  useEffect(() => {
+    setPanel(openSlug ? <OwnerDecisionDrawer key={openSlug} slug={openSlug} onClose={closeDrawer} /> : null, 400);
+  }, [openSlug, closeDrawer, setPanel]);
+  useEffect(() => () => setPanel(null), [setPanel]);
   const assessed = useAssessedRenewals(renewals);
   const mine = assessed.filter((entry) => entry.row.owner === OWNER_NAME);
-  // The owner is "assigned" by the lead in-app; email isn't sent, so this is the notice.
-  const assignedToMe = assessed
-    .flatMap((entry) =>
-      (resolutions[entry.slug]?.history ?? [])
-        .filter((event) => event.label === "Owner assigned" && event.ownerName === OWNER_NAME && entry.row.owner === OWNER_NAME)
-        .map((event) => ({ vendor: entry.row.vendor, at: event.at.slice(0, 10) })),
-    );
-  const needsCall = mine.filter((entry) => renewalStage(entry.row, resolutions[entry.slug]) === "awaiting-owner");
   const annualSpend = mine.reduce((sum, entry) => sum + entry.row.contractValue, 0);
   const unusedSeats = mine.reduce((sum, entry) => sum + (entry.row.seats ? entry.row.seats.purchased - entry.row.seats.active : 0), 0);
 
   return (
-    <div className="flex min-h-full w-full flex-col gap-[16px] p-[16px]">
-      <div className="flex flex-col gap-[4px]">
-        <Heading level="h1" className="text-[24px] font-semibold leading-[32px] text-ui-fg-base">My renewals</Heading>
-        <Text className="text-[14px] leading-[20px] text-ui-fg-subtle">
-          Tools you own. You&apos;re asked for a recommendation only when a contract enters its decision window.
-        </Text>
+    <div className="flex min-h-full w-full gap-[4px] p-[4px]">
+    <div className="flex min-w-0 flex-1 flex-col gap-[16px] p-[12px]">
+      <div className="flex items-start justify-between gap-[16px]">
+        <div className="flex flex-col gap-[8px]">
+          <h1 className="text-[20px] font-semibold leading-[28px] tracking-[-0.05px] text-ui-fg-base">My renewal</h1>
+          <p className="text-[14px] leading-[20px] tracking-[-0.07px] text-ui-fg-subtle">
+            Sorted by decide-by: the last day you can cancel or change a contract (renewal date minus notice period).
+          </p>
+        </div>
+        <AskBrunoButton />
       </div>
 
-      {needsCall.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-[16px] rounded-[8px] border border-solid border-[#f1d3ae] bg-[#fdf0e1] px-[18px] py-[14px] text-[14px] text-[#5a2c00]">
-          <span className="font-semibold">{`${needsCall.length} decision${needsCall.length === 1 ? "" : "s"} need${needsCall.length === 1 ? "s" : ""} you`}</span>
-          <span>{needsCall.map((entry) => `${entry.row.vendor} · decide by ${dayMonth(entry.row.decideByISO)}`).join(" · ")}</span>
-          <Link href={`/owner/${needsCall[0].slug}`} className="ml-auto h-[32px] rounded-[6px] bg-[#2876f5] px-[12px] leading-[32px] font-medium text-white">
-            Make your call
-          </Link>
-        </div>
-      ) : null}
-
-      {assignedToMe.length > 0 ? (
-        <div className="flex flex-col gap-[6px] rounded-[8px] border border-solid border-[#bcccee] bg-[#f3f6fd] p-[12px_16px] text-[14px] text-ui-fg-base">
-          <span className="font-medium">New to you</span>
-          {assignedToMe.map((item) => (
-            <span key={`${item.vendor}-${item.at}`}>{`${item.vendor} was assigned to you on ${item.at}. Anika will ask for your call before the decide-by date.`}</span>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="grid grid-cols-3 gap-[12px]">
-        {[
-          { label: "Tools you own", value: String(mine.length) },
-          { label: "Annual spend", value: usd.format(annualSpend) },
-          { label: "Unused seats", value: unusedSeats.toLocaleString("en-US") },
-        ].map((card) => (
-          <div key={card.label} className="flex flex-col gap-[8px] rounded-[8px] border border-solid border-ui-border-base bg-white p-[20px]">
-            <span className="text-[14px] leading-[20px] text-ui-fg-subtle">{card.label}</span>
-            <span className="text-[28px] font-semibold leading-[36px] text-ui-fg-base">{card.value}</span>
-          </div>
-        ))}
+      <div className="flex gap-[8px]">
+        <KpiCard icon="/assets/figma/dashboard/kpi-subscription.svg" label="Subscription you own" value={String(mine.length)} />
+        <KpiCard icon="/assets/figma/dashboard/kpi-spend.svg" label="Annual spend" value={usd.format(annualSpend)} />
+        <KpiCard icon="/assets/figma/dashboard/kpi-seats.svg" label="Unused seats" value={unusedSeats.toLocaleString("en-US")} />
       </div>
 
-      <div className="w-full overflow-x-auto rounded-[8px] border border-solid border-ui-border-base bg-white">
+      <div className="w-full overflow-x-auto rounded-[12px] border border-solid border-ui-border-base bg-white">
         <Table className="text-[14px]">
           <Table.Header className="bg-ui-bg-subtle">
             <Table.Row className="text-left text-[14px] text-ui-fg-subtle">
-              <Table.HeaderCell className="px-[12px] py-[10px] font-normal">Tool</Table.HeaderCell>
-              <Table.HeaderCell className="px-[12px] py-[10px] font-normal">Decide by</Table.HeaderCell>
+              <Table.HeaderCell className="px-[12px] py-[10px] font-normal">Vendor</Table.HeaderCell>
+              <Table.HeaderCell className="px-[12px] py-[10px] font-normal">Decided by</Table.HeaderCell>
+              <Table.HeaderCell className="px-[12px] py-[10px] font-normal">Renew</Table.HeaderCell>
+              <Table.HeaderCell className="px-[12px] py-[10px] font-normal">Seats active</Table.HeaderCell>
               <Table.HeaderCell className="px-[12px] py-[10px] text-right font-normal">Annual value</Table.HeaderCell>
+              <Table.HeaderCell className="px-[12px] py-[10px] text-right font-normal">YoY</Table.HeaderCell>
               <Table.HeaderCell className="px-[12px] py-[10px] font-normal">Status</Table.HeaderCell>
-              <Table.HeaderCell className="px-[12px] py-[10px] font-normal" />
+              <Table.HeaderCell className="px-[12px] py-[10px] font-normal">Action</Table.HeaderCell>
             </Table.Row>
           </Table.Header>
           <Table.Body>
             {mine.length === 0 ? (
               <Table.Row>
-                <Table.Cell className="px-[12px] py-[24px] text-ui-fg-muted">
-                  You don&apos;t own any tools yet.
-                </Table.Cell>
+                <Table.Cell className="px-[12px] py-[24px] text-ui-fg-muted">You don&apos;t own any tools yet.</Table.Cell>
               </Table.Row>
             ) : null}
             {mine.map((entry) => {
-              const stage = renewalStage(entry.row, resolutions[entry.slug]);
+              const row = entry.row;
+              const stage = renewalStage(row, resolutions[entry.slug]);
               // Past the decide-by date with no answer: the owner is overdue, not just asked.
-              const overdue = stage === "awaiting-owner" && entry.row.daysToDecideBy < 0;
+              const overdue = stage === "awaiting-owner" && row.daysToDecideBy < 0;
               const status = overdue ? { label: "Overdue", color: "red" as const } : statusFor[stage];
-              const recommendation = resolutions[entry.slug]?.recommendation;
+              const usagePercent = row.seats ? Math.round((row.seats.active / row.seats.purchased) * 100) : 0;
               return (
                 <Table.Row key={entry.slug} className="border-t border-solid border-ui-border-base">
-                  <Table.Cell className="px-[16px] py-[16px]">
-                    <div className="flex flex-col">
-                      <span className="font-medium text-ui-fg-base">{entry.row.vendor}</span>
-                      <span className="text-[14px] leading-[20px] text-ui-fg-subtle">{entry.row.subtitle}</span>
+                  <Table.Cell className="px-[12px] py-[12px]">
+                    <div className="flex items-center gap-[12px]">
+                      <VendorLogo logo={row.logo} vendor={row.vendor} />
+                      <div className="flex flex-col">
+                        <span className="font-medium text-ui-fg-base">{row.vendor}</span>
+                        <span className="text-[14px] leading-[20px] text-ui-fg-subtle">{row.subtitle}</span>
+                      </div>
                     </div>
                   </Table.Cell>
-                  <Table.Cell className="px-[12px] py-[12px] text-ui-fg-base">{dayMonth(entry.row.decideByISO)}</Table.Cell>
-                  <Table.Cell className="px-[12px] py-[12px] text-right text-ui-fg-base">{entry.row.contractAmount}</Table.Cell>
-                  <Table.Cell className="px-[12px] py-[12px]">
-                    {status ? (
-                      <Badge color={status.color} size="base">{status.label}</Badge>
-                    ) : null}
-                    {recommendation ? (
-                      <div className="mt-[6px] text-[14px] leading-[20px] text-ui-fg-subtle">{`You recommended ${recommendation.targetOutcome ?? actionLabel(recommendation.action)}`}</div>
-                    ) : null}
+                  <Table.Cell className="px-[12px] py-[12px] text-ui-fg-base">
+                    <div className="flex flex-col">
+                      <span>{dayMonth(row.decideByISO)}</span>
+                      <span className={`text-[14px] leading-[20px] ${row.daysToDecideBy <= 7 ? "text-[#9a3412]" : "text-ui-fg-subtle"}`}>
+                        {relativeDays(row.daysToDecideBy)}
+                      </span>
+                    </div>
                   </Table.Cell>
+                  <Table.Cell className="px-[12px] py-[12px] text-ui-fg-base">
+                    <div className="flex flex-col">
+                      <span>{dayMonthYear(row.renewalDate)}</span>
+                      <span className="text-[14px] leading-[20px] text-ui-fg-muted">{`${row.contractType} • ${row.noticeDays}-day notice`}</span>
+                    </div>
+                  </Table.Cell>
+                  <Table.Cell className="px-[12px] py-[12px] text-ui-fg-base">
+                    {row.seats ? (
+                      <div className="flex items-center gap-[12px]">
+                        <SeatGauge percent={usagePercent} />
+                        <span>{`${row.seats.active}/${row.seats.purchased}`}</span>
+                      </div>
+                    ) : (
+                      <span className="text-ui-fg-subtle">—</span>
+                    )}
+                  </Table.Cell>
+                  <Table.Cell className="px-[12px] py-[12px] text-right text-ui-fg-base">{row.contractAmount}</Table.Cell>
                   <Table.Cell className="px-[12px] py-[12px] text-right">
+                    {row.yoyPercent !== undefined ? (
+                      <span className={row.yoyPercent > 0 ? "text-[#9a3412]" : "text-ui-fg-subtle"}>
+                        {`${row.yoyPercent > 0 ? "+" : ""}${row.yoyPercent}%`}
+                      </span>
+                    ) : (
+                      <span className="text-ui-fg-subtle">—</span>
+                    )}
+                  </Table.Cell>
+                  <Table.Cell className="px-[12px] py-[12px]">
+                    {status ? <Badge color={status.color} size="xsmall">{status.label}</Badge> : null}
+                  </Table.Cell>
+                  <Table.Cell className="px-[12px] py-[12px]">
                     {stage === "awaiting-owner" ? (
-                      <div className="flex items-center justify-end gap-[8px]">
+                      <div className="flex items-center gap-[8px]">
                         {overdue ? (
                           <Button
                             variant="secondary"
@@ -140,8 +187,8 @@ export function OwnerHome() {
                             Renew as is
                           </Button>
                         ) : null}
-                        <Button asChild variant="primary" size="small">
-                          <Link href={`/owner/${entry.slug}`}>Make your call</Link>
+                        <Button variant="primary" size="small" onClick={() => { closeBruno(); setOpenSlug(entry.slug); }}>
+                          Make your call
                         </Button>
                       </div>
                     ) : null}
@@ -152,6 +199,7 @@ export function OwnerHome() {
           </Table.Body>
         </Table>
       </div>
+    </div>
     </div>
   );
 }

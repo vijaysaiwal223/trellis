@@ -1,36 +1,27 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Trellis renewal decisions
 
-## Getting Started
+A prototype that stops surprise renewals: a queue sorted by decide-by (renewal date minus notice period), with owner recommendations, the lead's decision, written notice and confirmed outcomes.
 
-First, run the development server:
+- Brief: [FRAMING-MEMO.md](FRAMING-MEMO.md) and [CORE-FLOW.md](CORE-FLOW.md)
+- Prototype memo: [PROTOTYPE-MEMO.md](PROTOTYPE-MEMO.md)
+
+## Run
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev     # http://localhost:3000
+npm test        # unit tests
+npm run build   # production build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Bruno (the AI assistant) needs `GEMINI_API_KEY` in `.env.local`. Without it, Bruno shows an offline summary.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Layout
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `src/app` — routes: the queue (`/`), the owner's view (`/owner`, `/owner/[slug]`), and the Bruno API route.
+- `src/features/renewal-risk` — deadlines, assessment, the queue and its drawers.
+- `src/features/owner-view` — the owner's dashboard and decision drawer.
+- `src/components` — shared UI: alert, stepper, seat gauge, Bruno button and layout.
+- `src/lib` — the clock, dates, browser-local runtime state and vendor slugs.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+State lives in the browser on one device. Nothing is sent to owners or vendors.

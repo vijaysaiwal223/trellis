@@ -28,7 +28,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 function AppShellContent({ children }: { children: ReactNode }) {
   const { isOpen, close } = useAiAssistant();
-  const { panel } = useRightPanel();
+  const { panel, panelWidth } = useRightPanel();
   const assessed = useAssessedRenewals(renewals);
   const portfolioFacts = useMemo(() => buildAiPortfolioFacts(assessed), [assessed]);
 
@@ -59,7 +59,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
             />
           </div>
         ) : panel ? (
-          <div className="flex h-full w-[400px] shrink-0 flex-col">{panel}</div>
+          <div className="flex h-full shrink-0 flex-col" style={{ width: panelWidth }}>{panel}</div>
         ) : null}
       </div>
     </TooltipProvider>
